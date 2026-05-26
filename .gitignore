@@ -1,0 +1,10 @@
+# ESPHome
+/.esphome/
+/secrets.yaml
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Repo separado del server (tiene su propio git)
+/ambrosierver/
