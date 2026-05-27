@@ -191,6 +191,7 @@ audio_streamer:
     - logger.log: "STREAM: ended (silence)"
     - script.stop: led_heartbeat
     - script.execute: led_off
+    - delay: 300ms
     - micro_wake_word.start:
   on_error:
     - logger.log: "STREAM: error"
@@ -201,6 +202,7 @@ audio_streamer:
         id(blink_b) = 0;
         id(blink_count) = 2;
     - script.execute: led_blink
+    - delay: 500ms
     - micro_wake_word.start:
 
 i2c:
@@ -240,20 +242,63 @@ text:
         - lambda: 'id(streamer).set_name(x);'
 
 i2s_audio:
-  - id: i2s_bus
-    i2s_lrclk_pin: GPIO7
-    i2s_bclk_pin: GPIO8
+  - id: i2s_in_bus
+    i2s_lrclk_pin:
+      number: GPIO7
+      allow_other_uses: true
+    i2s_bclk_pin:
+      number: GPIO8
+      allow_other_uses: true
+  - id: i2s_out_bus
+    i2s_lrclk_pin:
+      number: GPIO7
+      allow_other_uses: true
+    i2s_bclk_pin:
+      number: GPIO8
+      allow_other_uses: true
 
 microphone:
   - platform: i2s_audio
     id: mic_respeaker
-    i2s_audio_id: i2s_bus
+    i2s_audio_id: i2s_in_bus
     i2s_din_pin: GPIO43
     adc_type: external
     pdm: false
     channel: right
     bits_per_sample: 32bit
     sample_rate: 16000
+
+speaker:
+  - platform: i2s_audio
+    id: ext_speaker
+    i2s_audio_id: i2s_out_bus
+    i2s_dout_pin: GPIO44
+    dac_type: external
+    channel: mono
+    sample_rate: 48000
+    bits_per_sample: 16bit
+
+  - platform: mixer
+    id: audio_mixer
+    output_speaker: ext_speaker
+    source_speakers:
+      - id: media_source
+      - id: announce_source
+
+media_player:
+  - platform: speaker
+    id: ambrosio_media
+    name: "Ambrosio Media"
+    media_pipeline:
+      speaker: media_source
+      format: FLAC
+      sample_rate: 48000
+      num_channels: 1
+    announcement_pipeline:
+      speaker: announce_source
+      format: FLAC
+      sample_rate: 48000
+      num_channels: 1
 
 micro_wake_word:
   id: mww
