@@ -329,8 +329,8 @@ micro_wake_word:
   models:
     - model: ./oye_ambrosio.json
       id: oye_ambrosio
-      probability_cutoff: 95%
-      sliding_window_size: 5
+      probability_cutoff: 97%
+      sliding_window_size: 10
 
   on_wake_word_detected:
     then:
