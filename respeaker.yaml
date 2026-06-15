@@ -8,6 +8,7 @@ esphome:
           uint8_t led_off[4] = {0x14, 0x0C, 0x01, 0x00};
           id(bus_a).write(0x2C, led_off, 4);
           id(streamer).set_name(id(satellite_name).state);
+          id(streamer).set_host(id(server_host).state);
       - micro_wake_word.start:
 
 esp32:
@@ -240,6 +241,23 @@ text:
     on_value:
       then:
         - lambda: 'id(streamer).set_name(x);'
+
+  # Host del Ambrosierver. Ambrosierver lo sobreescribe por API al detectar el
+  # satélite por mDNS si su IP no coincide. restore_value: true => persiste en
+  # flash y se restaura en cada arranque (ver on_boot). El !secret solo se usa
+  # la primera vez (flash virgen) como fallback.
+  - platform: template
+    name: "Servidor Host"
+    id: server_host
+    optimistic: true
+    min_length: 1
+    max_length: 64
+    mode: text
+    initial_value: !secret ambrosierver_host
+    restore_value: true
+    on_value:
+      then:
+        - lambda: 'id(streamer).set_host(x);'
 
 i2s_audio:
   - id: i2s_in_bus
