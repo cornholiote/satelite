@@ -62,7 +62,7 @@ class AudioStreamer : public Component {
 template<typename... Ts> class StartAction : public Action<Ts...> {
  public:
   explicit StartAction(AudioStreamer *parent) : parent_(parent) {}
-  void play(Ts... x) override { this->parent_->start(); }
+  void play(const Ts &...) override { this->parent_->start(); }
  protected:
   AudioStreamer *parent_;
 };
@@ -70,7 +70,7 @@ template<typename... Ts> class StartAction : public Action<Ts...> {
 template<typename... Ts> class StopAction : public Action<Ts...> {
  public:
   explicit StopAction(AudioStreamer *parent) : parent_(parent) {}
-  void play(Ts... x) override { this->parent_->stop(); }
+  void play(const Ts &...) override { this->parent_->stop(); }
  protected:
   AudioStreamer *parent_;
 };
