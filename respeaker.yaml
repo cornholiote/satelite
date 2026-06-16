@@ -326,13 +326,16 @@ micro_wake_word:
     microphone: mic_respeaker
     channels: 0
 
+  vad:
+    model: github://esphome/micro-wake-word-models/models/v2/vad.json@main
+    probability_cutoff: 80%
+    sliding_window_size: 5
+
   models:
     - model: ./oye_ambrosio.json
       id: oye_ambrosio
-      # Override del cutoff calibrado (0.82) para frenar falsos positivos.
-      # Ajustar con datos: mira las probabilidades de los falsos en los logs.
-      # window se deja en el calibrado del .json (3).
-      probability_cutoff: 92%
+      probability_cutoff: 98%
+      sliding_window_size: 7
 
   on_wake_word_detected:
     then:
