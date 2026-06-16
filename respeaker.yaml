@@ -329,8 +329,10 @@ micro_wake_word:
   models:
     - model: ./oye_ambrosio.json
       id: oye_ambrosio
-      probability_cutoff: 97%
-      sliding_window_size: 10
+      # Override del cutoff calibrado (0.82) para frenar falsos positivos.
+      # Ajustar con datos: mira las probabilidades de los falsos en los logs.
+      # window se deja en el calibrado del .json (3).
+      probability_cutoff: 92%
 
   on_wake_word_detected:
     then:
