@@ -54,6 +54,10 @@ class AudioStreamer : public Component {
   uint32_t last_voice_ms_{0};
   uint32_t start_ms_{0};
 
+  // Decimación 48 kHz → 16 kHz (3:1), persistente entre callbacks de audio.
+  int32_t decim_acc_{0};
+  uint8_t decim_count_{0};
+
   CallbackManager<void()> on_start_callbacks_;
   CallbackManager<void()> on_end_callbacks_;
   CallbackManager<void()> on_error_callbacks_;

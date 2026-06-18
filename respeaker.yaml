@@ -1,12 +1,21 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Ambrosio Satélite — ReSpeaker XVF3800 (XMOS) + XIAO ESP32S3.
+#
+# Firmware XMOS 1.0.7 I2S-MASTER (se graba solo por I2C en el arranque); el ESP
+# va como i2s secondary. Wake word "oye ambrosio" → audio_streamer manda el audio
+# al Ambrosierver por TCP. Reproduce/para música sin colgar el micro.
+#
+# Base hardware (firmware/i2s/DAC) de github.com/formatBCE/Respeaker-XVF3800-ESPHome-integration
+# El config previo (firmware 1.0.5, ESP master) queda en respeaker-old.yaml.
+# ─────────────────────────────────────────────────────────────────────────────
+
 esphome:
   name: ambrosio-despacho
   on_boot:
     priority: -100
     then:
-      - delay: 500ms
+      - delay: 1s
       - lambda: |-
-          uint8_t led_off[4] = {0x14, 0x0C, 0x01, 0x00};
-          id(bus_a).write(0x2C, led_off, 4);
           id(streamer).set_name(id(satellite_name).state);
           id(streamer).set_host(id(server_host).state);
       - micro_wake_word.start:
@@ -14,23 +23,31 @@ esphome:
 esp32:
   board: seeed_xiao_esp32s3
   variant: esp32s3
+  flash_size: 8MB
   framework:
     type: esp-idf
+    version: recommended
+    components:
+      - espressif/esp-nn==1.1.2  # acelera micro_wake_word en S3
     sdkconfig_options:
-      CONFIG_ESP32S3_SPIRAM_SUPPORT: "y"
-      CONFIG_SPIRAM_MODE_OCT: "y"
-      CONFIG_SPIRAM_SPEED_80M: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB: "y"
+      CONFIG_SPIRAM_RODATA: "y"
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: "y"
 
 psram:
   mode: octal
   speed: 80MHz
 
 logger:
+  level: INFO
 
 api:
   encryption:
     key: !secret api_encryption_key
   reboot_timeout: 0s
+  # Servicios que llama Ambrosierver para el feedback de color del anillo LED.
   services:
     - service: set_led_color
       variables:
@@ -38,20 +55,10 @@ api:
         green: int
         blue: int
       then:
-        - script.stop: led_heartbeat
-        - lambda: |-
-            uint8_t set_effect[4] = {0x14, 0x0C, 0x01, 0x03};
-            id(bus_a).write(0x2C, set_effect, 4);
-            uint8_t set_bright[4] = {0x14, 0x0D, 0x01, 0xFF};
-            id(bus_a).write(0x2C, set_bright, 4);
-            uint8_t r = (uint8_t) std::min(std::max((int) red,   0), 255);
-            uint8_t g = (uint8_t) std::min(std::max((int) green, 0), 255);
-            uint8_t b = (uint8_t) std::min(std::max((int) blue,  0), 255);
-            uint8_t cmd[7] = {0x14, 0x10, 0x04, b, g, r, 0x00};
-            id(bus_a).write(0x2C, cmd, 7);
+        - lambda: 'id(led_r) = red; id(led_g) = green; id(led_b) = blue;'
+        - script.execute: led_solid
     - service: leds_off
       then:
-        - script.stop: led_heartbeat
         - script.execute: led_off
     - service: blink_color
       variables:
@@ -60,157 +67,8 @@ api:
         blue: int
         count: int
       then:
-        - script.stop: led_heartbeat
-        - lambda: |-
-            id(blink_r) = red;
-            id(blink_g) = green;
-            id(blink_b) = blue;
-            id(blink_count) = (count > 0) ? count : 2;
+        - lambda: 'id(led_r) = red; id(led_g) = green; id(led_b) = blue; id(led_blink_count) = count;'
         - script.execute: led_blink
-
-globals:
-  - id: pulse_idx
-    type: int
-    restore_value: no
-    initial_value: '0'
-  - id: blink_r
-    type: int
-    restore_value: no
-    initial_value: '0'
-  - id: blink_g
-    type: int
-    restore_value: no
-    initial_value: '0'
-  - id: blink_b
-    type: int
-    restore_value: no
-    initial_value: '0'
-  - id: blink_count
-    type: int
-    restore_value: no
-    initial_value: '2'
-
-script:
-  - id: led_heartbeat
-    mode: restart
-    then:
-      # Setup: efecto 3 = single color (sin animación XMOS), brillo al máximo, color a 0
-      - lambda: |-
-          id(pulse_idx) = 0;
-          uint8_t set_effect[4] = {0x14, 0x0C, 0x01, 0x03};
-          id(bus_a).write(0x2C, set_effect, 4);
-          uint8_t set_bright[4] = {0x14, 0x0D, 0x01, 0xFF};
-          id(bus_a).write(0x2C, set_bright, 4);
-          uint8_t off_color[7] = {0x14, 0x10, 0x04, 0x00, 0x00, 0x00, 0x00};
-          id(bus_a).write(0x2C, off_color, 7);
-      # Fase 1: fade-in 0 → color completo en 2s (ease-out)
-      - repeat:
-          count: 75
-          then:
-            - lambda: |-
-                const int fade_steps = 75;
-                float t = (float)(id(pulse_idx) + 1) / fade_steps;
-                float eased = 1.0f - (1.0f - t) * (1.0f - t);
-                uint8_t r = 0;
-                uint8_t g = (uint8_t)(128.0f * eased);
-                uint8_t b = (uint8_t)(255.0f * eased);
-                uint8_t cmd[7] = {0x14, 0x10, 0x04, b, g, r, 0x00};
-                id(bus_a).write(0x2C, cmd, 7);
-                id(pulse_idx)++;
-            - delay: 20ms
-      - lambda: 'id(pulse_idx) = 0;'
-      # Fase 2: respiración escalando el color (50% ↔ 80%), ciclo 4s, empieza en máximo
-      - while:
-          condition:
-            lambda: 'return true;'
-          then:
-            - lambda: |-
-                const int period_steps = 150;       // 150 * 20ms = 3s
-                const float min_scale = 0.5f;
-                const float max_scale = 0.8f;
-                float t = (float)(id(pulse_idx) % period_steps) / period_steps;
-                float wave = (1.0f + std::cos(2.0f * 3.14159265f * t)) * 0.5f;
-                float scale = min_scale + wave * (max_scale - min_scale);
-                uint8_t r = 0;
-                uint8_t g = (uint8_t)(128.0f * scale);
-                uint8_t b = (uint8_t)(255.0f * scale);
-                uint8_t cmd[7] = {0x14, 0x10, 0x04, b, g, r, 0x00};
-                id(bus_a).write(0x2C, cmd, 7);
-                id(pulse_idx)++;
-            - delay: 20ms
-
-  - id: led_off
-    then:
-      - lambda: |-
-          uint8_t led_off_cmd[4] = {0x14, 0x0C, 0x01, 0x00};
-          id(bus_a).write(0x2C, led_off_cmd, 4);
-
-  # Parpadea N veces con el color indicado en los globals (blink_r/g/b, blink_count).
-  # Al terminar deja los LEDs apagados.
-  - id: led_blink
-    mode: restart
-    then:
-      - lambda: |-
-          uint8_t set_effect[4] = {0x14, 0x0C, 0x01, 0x03};
-          id(bus_a).write(0x2C, set_effect, 4);
-          uint8_t set_bright[4] = {0x14, 0x0D, 0x01, 0xFF};
-          id(bus_a).write(0x2C, set_bright, 4);
-      - repeat:
-          count: !lambda 'return id(blink_count);'
-          then:
-            - lambda: |-
-                uint8_t r = (uint8_t) std::min(std::max(id(blink_r), 0), 255);
-                uint8_t g = (uint8_t) std::min(std::max(id(blink_g), 0), 255);
-                uint8_t b = (uint8_t) std::min(std::max(id(blink_b), 0), 255);
-                uint8_t cmd[7] = {0x14, 0x10, 0x04, b, g, r, 0x00};
-                id(bus_a).write(0x2C, cmd, 7);
-            - delay: 250ms
-            - lambda: |-
-                uint8_t off_color[7] = {0x14, 0x10, 0x04, 0, 0, 0, 0x00};
-                id(bus_a).write(0x2C, off_color, 7);
-            - delay: 200ms
-      - script.execute: led_off
-
-external_components:
-  - source:
-      type: local
-      path: components
-    components: [audio_streamer]
-
-audio_streamer:
-  id: streamer
-  microphone: mic_respeaker
-  host: !secret ambrosierver_host
-  port: 9000
-  silence_threshold: 300
-  silence_duration: 1500ms
-  min_duration: 500ms
-  max_duration: 4s
-  on_start:
-    - logger.log: "STREAM: started"
-  on_end:
-    - logger.log: "STREAM: ended (silence)"
-    - script.stop: led_heartbeat
-    - script.execute: led_off
-    - delay: 300ms
-    - micro_wake_word.start:
-  on_error:
-    - logger.log: "STREAM: error"
-    - script.stop: led_heartbeat
-    - lambda: |-
-        id(blink_r) = 220;
-        id(blink_g) = 0;
-        id(blink_b) = 0;
-        id(blink_count) = 2;
-    - script.execute: led_blink
-    - delay: 500ms
-    - micro_wake_word.start:
-
-i2c:
-  - id: bus_a
-    sda: GPIO5
-    scl: GPIO6
-    scan: true
 
 ota:
   - platform: esphome
@@ -218,6 +76,7 @@ ota:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  power_save_mode: none
   ap:
     ssid: !secret wifi_ap_ssid
     password: !secret wifi_ap_password
@@ -228,6 +87,103 @@ web_server:
   port: 80
   version: 3
 
+# ── Control del anillo LED (12 SK6812) vía el XMOS (set_led_ring del componente) ──
+globals:
+  - id: led_r
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: led_g
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: led_b
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: led_blink_count
+    type: int
+    restore_value: no
+    initial_value: '2'
+
+script:
+  - id: led_solid
+    then:
+      - lambda: |-
+          uint32_t c = ((uint32_t) id(led_r) << 16) | ((uint32_t) id(led_g) << 8) | (uint32_t) id(led_b);
+          uint32_t colors[12];
+          for (int i = 0; i < 12; i++) colors[i] = c;
+          id(respeaker).set_led_ring(colors);
+  - id: led_off
+    then:
+      - lambda: |-
+          uint32_t colors[12] = {0};
+          id(respeaker).set_led_ring(colors);
+  - id: led_blink
+    mode: restart
+    then:
+      - repeat:
+          count: !lambda 'return id(led_blink_count) > 0 ? id(led_blink_count) : 2;'
+          then:
+            - script.execute: led_solid
+            - delay: 250ms
+            - script.execute: led_off
+            - delay: 200ms
+
+# ── I2C: control del XMOS (0x2C) y del DAC AIC3104 (0x18) ──
+i2c:
+  - id: bus_a
+    sda: GPIO5
+    scl: GPIO6
+    scan: true
+    frequency: 100kHz
+
+# ── Componentes externos: fork de i2s_audio (para mic 48k→mWW) + control XMOS + DAC ──
+external_components:
+  - source:
+      type: git
+      url: https://github.com/formatBCE/esphome
+      ref: respeaker_microphone
+    components: [i2s_audio]
+    refresh: 0s
+  - source:
+      type: git
+      url: https://github.com/formatBCE/Respeaker-XVF3800-ESPHome-integration
+      ref: main
+    components: [respeaker_xvf3800, aic3104]
+    refresh: 0s
+  - source:
+      type: local
+      path: components
+    components: [audio_streamer]
+
+# Streamer custom: tras la wakeword, abre TCP al Ambrosierver y manda el audio
+# del micro (convertido a 16k/16bit/mono en el componente). Cierra por silencio.
+audio_streamer:
+  id: streamer
+  microphone: i2s_mics
+  host: !secret ambrosierver_host
+  port: 9000
+  silence_threshold: 300
+  silence_duration: 1500ms
+  min_duration: 500ms
+  max_duration: 4s
+  on_start:
+    - logger.log: "STREAM: started"
+  on_end:
+    - logger.log: "STREAM: ended (silence)"
+    - script.execute: led_off   # el server pintará el color del resultado (verde/naranja)
+    - delay: 300ms
+    - micro_wake_word.start:
+  on_error:
+    - logger.log: "STREAM: error"
+    - lambda: 'id(led_r) = 220; id(led_g) = 0; id(led_b) = 0; id(led_blink_count) = 2;'
+    - script.execute: led_blink
+    - delay: 500ms
+    - micro_wake_word.start:
+
+# Nombre del satélite (se manda al server como identificador/área) y host del
+# Ambrosierver. Persisten en flash; el server puede reescribir el host por API.
 text:
   - platform: template
     name: "Nombre del Ambrosio"
@@ -236,16 +192,11 @@ text:
     min_length: 1
     max_length: 32
     mode: text
-    initial_value: "respeaker-1"
+    initial_value: "despacho"
     restore_value: true
     on_value:
       then:
         - lambda: 'id(streamer).set_name(x);'
-
-  # Host del Ambrosierver. Ambrosierver lo sobreescribe por API al detectar el
-  # satélite por mDNS si su IP no coincide. restore_value: true => persiste en
-  # flash y se restaura en cada arranque (ver on_boot). El !secret solo se usa
-  # la primera vez (flash virgen) como fallback.
   - platform: template
     name: "Servidor Host"
     id: server_host
@@ -259,15 +210,41 @@ text:
       then:
         - lambda: 'id(streamer).set_host(x);'
 
+# ── XMOS XVF3800: graba el firmware 1.0.7 (I2S master) por I2C en el arranque ──
+respeaker_xvf3800:
+  id: respeaker
+  address: 0x2C
+  i2c_id: bus_a
+  # El XMOS arranca con el micro MUTEADO; el switch (restore OFF) lo desmutea en
+  # el arranque vía GPO. Sin esto, el micro está mudo y mWW no detecta nada.
+  mute_switch:
+    id: mic_mute_switch
+    name: "Microphone Mute"
+    update_interval: 1s
+  dfu_version:
+    name: "XMOS Firmware Version"
+  firmware:
+    url: https://github.com/formatBCE/Respeaker-XVF3800-ESPHome-integration/raw/refs/heads/main/application_xvf3800_inthost-lr48-sqr-i2c-v1.0.7-release.bin
+    version: "1.0.7"
+    md5: 043a848f544ff2c7265ac19685daf5de
+
+# ── DAC del speaker (chip AIC3104 en 0x18) ──
+audio_dac:
+  - platform: aic3104
+    id: aic3104_dac
+    i2c_id: bus_a
+
+# ── I2S: el XMOS es el MASTER (genera reloj); el ESP va como secondary. ──
+# Entrada y salida comparten LRCLK/BCLK (GPIO7/8); sin MCLK por el ESP.
 i2s_audio:
-  - id: i2s_in_bus
+  - id: i2s_output
     i2s_lrclk_pin:
       number: GPIO7
       allow_other_uses: true
     i2s_bclk_pin:
       number: GPIO8
       allow_other_uses: true
-  - id: i2s_out_bus
+  - id: i2s_input
     i2s_lrclk_pin:
       number: GPIO7
       allow_other_uses: true
@@ -277,70 +254,94 @@ i2s_audio:
 
 microphone:
   - platform: i2s_audio
-    id: mic_respeaker
-    i2s_audio_id: i2s_in_bus
+    id: i2s_mics
     i2s_din_pin: GPIO43
     adc_type: external
     pdm: false
-    channel: right
+    sample_rate: 48000
     bits_per_sample: 32bit
-    sample_rate: 16000
+    i2s_mode: secondary
+    i2s_audio_id: i2s_input
+    channel: stereo
 
 speaker:
+  # Salida física al hardware (vía DAC AIC3104).
   - platform: i2s_audio
-    id: ext_speaker
-    i2s_audio_id: i2s_out_bus
+    id: i2s_audio_speaker
     i2s_dout_pin: GPIO44
-    dac_type: external
-    channel: mono
+    i2s_audio_id: i2s_output
     sample_rate: 48000
-    bits_per_sample: 16bit
+    bits_per_sample: 32bit
+    i2s_mode: secondary
+    dac_type: external
+    channel: stereo
+    timeout: never
+    buffer_duration: 100ms
+    audio_dac: aic3104_dac
 
+  # Mezcla media + announcement en una sola salida.
   - platform: mixer
-    id: audio_mixer
-    output_speaker: ext_speaker
+    id: mixing_speaker
+    output_speaker: i2s_audio_speaker
+    num_channels: 2
     source_speakers:
-      - id: media_source
-      - id: announce_source
+      - id: announcement_mixing_input
+        timeout: never
+      - id: media_mixing_input
+        timeout: never
+
+  # Resamplean cada pipeline al formato del mixer.
+  - platform: resampler
+    id: announcement_resampling_speaker
+    output_speaker: announcement_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
+  - platform: resampler
+    id: media_resampling_speaker
+    output_speaker: media_mixing_input
+    sample_rate: 48000
+    bits_per_sample: 16
 
 media_player:
   - platform: speaker
     id: ambrosio_media
     name: "Ambrosio Media"
     media_pipeline:
-      speaker: media_source
+      speaker: media_resampling_speaker
       format: FLAC
       sample_rate: 48000
       num_channels: 1
     announcement_pipeline:
-      speaker: announce_source
+      speaker: announcement_resampling_speaker
       format: FLAC
       sample_rate: 48000
       num_channels: 1
 
+# ── Wake word "oye ambrosio" (modelo local), leyendo el mic 48k vía el fork ──
 micro_wake_word:
   id: mww
-  stop_after_detection: true
-
   microphone:
-    microphone: mic_respeaker
-    channels: 0
-
+    microphone: i2s_mics
+    channels: 1
+  # Se para al detectar; el audio_streamer toma el micro y, al acabar el stream
+  # (silencio/error), rearma micro_wake_word desde su on_end/on_error.
+  stop_after_detection: true
   vad:
     model: github://esphome/micro-wake-word-models/models/v2/vad.json@main
     probability_cutoff: 80%
     sliding_window_size: 5
-
   models:
+    # OJO: cargar un segundo modelo a la vez hace que oye_ambrosio deje de
+    # dispararse (memoria/arena). Mantener SOLO este.
     - model: ./oye_ambrosio.json
       id: oye_ambrosio
-      probability_cutoff: 98%
-      sliding_window_size: 7
-
+      probability_cutoff: 50%
+      sliding_window_size: 2
   on_wake_word_detected:
     then:
       - logger.log:
           format: "WAKEWORD DETECTADA: %s"
           args: [wake_word.c_str()]
-      - script.execute: led_heartbeat
+      - lambda: 'id(led_r) = 0; id(led_g) = 80; id(led_b) = 255;'  # azul: escuchando
+      - script.execute: led_solid
       - audio_streamer.start: streamer

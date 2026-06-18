@@ -153,8 +153,14 @@ void AudioStreamer::start() {
   }
   start_ms_ = millis();
   last_voice_ms_ = start_ms_;
+  decim_acc_ = 0;
+  decim_count_ = 0;
   active_ = true;
   mic_->start();
+  auto si = mic_->get_audio_stream_info();
+  ESP_LOGD(TAG, "Mic stream info: rate=%u Hz, channels=%u, bits=%u",
+           (unsigned) si.get_sample_rate(), (unsigned) si.get_channels(),
+           (unsigned) si.get_bits_per_sample());
   on_start_callbacks_.call();
   ESP_LOGI(TAG, "Streaming started");
 }
@@ -169,23 +175,24 @@ void AudioStreamer::stop() {
 void AudioStreamer::on_audio_data_(const std::vector<uint8_t> &data) {
   if (!active_ || sock_ < 0) return;
 
-  // Mic delivers 32-bit samples (i2s bits_per_sample: 32bit on XMOS).
-  // Convert to 16-bit signed PCM by taking upper 16 bits (arithmetic shift preserves sign).
-  size_t n_samples = data.size() / 4;
-  if (n_samples == 0) return;
-
-  std::vector<int16_t> pcm16(n_samples);
+  // El mic del fork entrega ya 16 kHz / 32-bit / STEREO interleaved [L,R,L,R,...].
+  // El server espera 16 kHz / 16-bit / MONO. Por cada frame tomamos el canal R
+  // (índice 1, el mismo que usa micro_wake_word) y pasamos 32→16 bits (16 bits
+  // altos; el shift aritmético conserva el signo). SIN decimar: el rate ya es 16k.
+  size_t n_frames = data.size() / 8;  // 2 canales * 4 bytes
+  if (n_frames == 0) return;
   const int32_t *src = reinterpret_cast<const int32_t *>(data.data());
 
+  std::vector<int16_t> pcm16(n_frames);
   uint64_t sum_sq = 0;
-  for (size_t i = 0; i < n_samples; i++) {
-    int16_t s16 = static_cast<int16_t>(src[i] >> 16);
+  for (size_t i = 0; i < n_frames; i++) {
+    int16_t s16 = static_cast<int16_t>(src[i * 2 + 1] >> 16);  // canal R, 32→16 bits
     pcm16[i] = s16;
     int32_t v = s16;
     sum_sq += static_cast<uint64_t>(v * v);
   }
 
-  uint16_t rms = static_cast<uint16_t>(std::sqrt((double) sum_sq / (double) n_samples));
+  uint16_t rms = static_cast<uint16_t>(std::sqrt((double) sum_sq / (double) n_frames));
 
   uint32_t now = millis();
   if (rms >= silence_threshold_) {
