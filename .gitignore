@@ -1,6 +1,7 @@
 # ESPHome
 /.esphome/
 /secrets.yaml
+/.venv-esphome/
 
 # macOS
 .DS_Store
