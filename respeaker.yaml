@@ -165,7 +165,7 @@ audio_streamer:
   host: !secret ambrosierver_host
   port: 9000
   silence_threshold: 300
-  silence_duration: 800ms
+  silence_duration: 1500ms
   min_duration: 500ms
   max_duration: 4s
   on_start:
