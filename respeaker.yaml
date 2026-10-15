@@ -257,7 +257,7 @@ text:
     min_length: 1
     max_length: 32
     mode: text
-    initial_value: "despacho"
+    initial_value: "sin_asignar"
     restore_value: true
     on_value:
       then:
