@@ -10,7 +10,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 esphome:
-  name: ambrosio-despacho
+  name: ambrosio
+  name_add_mac_suffix: true
   on_boot:
     priority: -100
     then:
