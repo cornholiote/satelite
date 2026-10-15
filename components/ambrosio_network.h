@@ -95,9 +95,8 @@ inline bool stage(const std::string &mode, const std::string &ip,
     write("pending", "0");
     return false;
   }
-  // Force a fresh STA connection so Ambrosierver can verify the new address.
-  esp_wifi_disconnect();
-  esp_wifi_connect();
+  // Keep the ESPHome-managed Wi-Fi association intact; changing IPv4 must not
+  // trigger a competing reconnect cycle. The pending rollback remains active.
   return true;
 }
 inline void restore_confirmed() {
