@@ -64,9 +64,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          find .esphome/build -type f -name firmware.bin -print
-          BIN="$(find .esphome/build -type f -name firmware.bin -print -quit)"
-          test -n "$BIN"
+          echo "Firmware binaries generated:"
+          find .esphome/build -type f \( -name '*.bin' -o -name '*.ota.bin' \) -print
+          # ESPHome ESP-IDF generates firmware.ota.bin for OTA updates.
+          BIN="$(find .esphome/build -type f -name firmware.ota.bin -print -quit)"
+          if [ -z "$BIN" ]; then
+            BIN="$(find .esphome/build -type f -name firmware.bin -print -quit)"
+          fi
+          if [ -z "$BIN" ]; then
+            echo "::error::No OTA firmware found in .esphome/build"
+            exit 1
+          fi
+          echo "Packaging OTA firmware: $BIN"
           cp "$BIN" dist/ambrosio-respeaker-ota.bin
           sha256sum dist/ambrosio-respeaker-ota.bin > dist/sha256sum.txt
           printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > dist/firmware.json
