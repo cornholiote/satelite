@@ -57,6 +57,7 @@ api:
     key: !secret api_encryption_key
   reboot_timeout: 0s
   # Cambios IPv4 experimentales, con rollback tras 120 segundos sin confirmación.
+  services:
     - service: configure_network
       variables:
         mode: string
@@ -78,7 +79,6 @@ api:
               id(network_pending) = false;
             }
   # Servicios que llama Ambrosierver para el feedback de color del anillo LED.
-  services:
     - service: set_led_color
       variables:
         red: int
