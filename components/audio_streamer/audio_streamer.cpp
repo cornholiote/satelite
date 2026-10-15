@@ -138,6 +138,11 @@ void AudioStreamer::close_socket_(bool error) {
 }
 
 void AudioStreamer::start() {
+  if (name_.empty() || name_ == "sin_asignar") {
+    ESP_LOGW(TAG, "Satellite has no assigned area; audio streaming disabled");
+    on_error_callbacks_.call();
+    return;
+  }
   if (active_) {
     ESP_LOGW(TAG, "Already streaming, ignoring start()");
     return;
