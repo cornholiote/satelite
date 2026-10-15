@@ -55,10 +55,11 @@ api:
         green: int
         blue: int
       then:
-        - lambda: 'id(led_r) = red; id(led_g) = green; id(led_b) = blue;'
+        - lambda: 'id(led_hold_until) = millis() + 3000; id(led_r) = red; id(led_g) = green; id(led_b) = blue;'
         - script.execute: led_solid
     - service: leds_off
       then:
+        - lambda: 'id(led_hold_until) = millis() + 3000;'
         - script.execute: led_off
     - service: blink_color
       variables:
@@ -67,7 +68,7 @@ api:
         blue: int
         count: int
       then:
-        - lambda: 'id(led_r) = red; id(led_g) = green; id(led_b) = blue; id(led_blink_count) = count;'
+        - lambda: 'id(led_hold_until) = millis() + 3000; id(led_r) = red; id(led_g) = green; id(led_b) = blue; id(led_blink_count) = count;'
         - script.execute: led_blink
 
 ota:
@@ -87,8 +88,57 @@ web_server:
   port: 80
   version: 3
 
+http_request:
+  timeout: 3s
+
+interval:
+  - interval: 10s
+    then:
+      - http_request.get:
+          url: !lambda 'return "http://" + id(server_host).state + ":8090/health";'
+          on_response:
+            then:
+              - lambda: 'id(server_online) = (response->status_code == 200);'
+          on_error:
+            then:
+              - lambda: 'id(server_online) = false;'
+  - interval: 150ms
+    then:
+      - lambda: |-
+          uint32_t now = millis();
+          if (!id(server_online) && !id(streaming_audio) && (int32_t)(now - id(led_hold_until)) >= 0) {
+            uint32_t phase = now % 1600;
+            uint8_t b = 0;
+            if (phase < 180) b = phase < 90 ? phase * 150 / 90 : (180 - phase) * 150 / 90;
+            else if (phase >= 270 && phase < 450) b = phase < 360 ? (phase - 270) * 150 / 90 : (450 - phase) * 150 / 90;
+            uint32_t colors[12];
+            for (int i = 0; i < 12; i++) colors[i] = (uint32_t) b << 16;
+            id(respeaker).set_led_ring(colors);
+            id(heartbeat_visible) = true;
+          } else if (id(heartbeat_visible)) {
+            uint32_t colors[12] = {0};
+            id(respeaker).set_led_ring(colors);
+            id(heartbeat_visible) = false;
+          }
+
 # ── Control del anillo LED (12 SK6812) vía el XMOS (set_led_ring del componente) ──
 globals:
+  - id: server_online
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: streaming_audio
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: heartbeat_visible
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: led_hold_until
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: led_r
     type: int
     restore_value: no
@@ -169,13 +219,16 @@ audio_streamer:
   min_duration: 500ms
   max_duration: 4s
   on_start:
+    - lambda: 'id(streaming_audio) = true;'
     - logger.log: "STREAM: started"
   on_end:
+    - lambda: 'id(streaming_audio) = false; id(led_hold_until) = millis() + 1200;'
     - logger.log: "STREAM: ended (silence)"
     - script.execute: led_off   # el server pintará el color del resultado (verde/naranja)
     - delay: 300ms
     - micro_wake_word.start:
   on_error:
+    - lambda: 'id(streaming_audio) = false; id(led_hold_until) = millis() + 1200;'
     - logger.log: "STREAM: error"
     - lambda: 'id(led_r) = 220; id(led_g) = 0; id(led_b) = 0; id(led_blink_count) = 2;'
     - script.execute: led_blink
@@ -342,6 +395,6 @@ micro_wake_word:
       - logger.log:
           format: "WAKEWORD DETECTADA: %s"
           args: [wake_word.c_str()]
-      - lambda: 'id(led_r) = 0; id(led_g) = 80; id(led_b) = 255;'  # azul: escuchando
+      - lambda: 'id(streaming_audio) = true; id(led_r) = 0; id(led_g) = 80; id(led_b) = 255;'  # azul: escuchando
       - script.execute: led_solid
       - audio_streamer.start: streamer
