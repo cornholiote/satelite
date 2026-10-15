@@ -245,7 +245,7 @@ text_sensor:
   - platform: template
     name: 'Firmware Ambrosio'
     entity_category: diagnostic
-    update_interval: never
+    update_interval: 60s
     lambda: |-
       return {"${firmware_version}"};
 
