@@ -15,6 +15,8 @@ substitutions:
 esphome:
   name: ambrosio
   name_add_mac_suffix: true
+  includes:
+    - components/ambrosio_network.h
   on_boot:
     priority: -100
     then:
@@ -22,6 +24,9 @@ esphome:
       - lambda: |-
           id(streamer).set_name(id(satellite_name).state);
           id(streamer).set_host(id(server_host).state);
+      - lambda: |-
+          ambrosio_network::restore_confirmed();
+          ambrosio_network::write("pending", "0");
       - micro_wake_word.start:
 
 esp32:
@@ -51,6 +56,27 @@ api:
   encryption:
     key: !secret api_encryption_key
   reboot_timeout: 0s
+  # Cambios IPv4 experimentales, con rollback tras 120 segundos sin confirmación.
+    - service: configure_network
+      variables:
+        mode: string
+        ip: string
+        mask: string
+        gateway: string
+        dns: string
+      then:
+        - lambda: |-
+            if (ambrosio_network::stage(mode, ip, mask, gateway, dns)) {
+              id(network_pending_since) = millis();
+              id(network_pending) = true;
+            }
+    - service: confirm_network
+      then:
+        - lambda: |-
+            if (id(server_online) && id(network_pending)) {
+              ambrosio_network::confirm();
+              id(network_pending) = false;
+            }
   # Servicios que llama Ambrosierver para el feedback de color del anillo LED.
   services:
     - service: set_led_color
@@ -96,6 +122,15 @@ http_request:
   timeout: 3s
 
 interval:
+  - interval: 5s
+    then:
+      - lambda: |-
+          if (id(network_pending) && (uint32_t)(millis() - id(network_pending_since)) > 120000) {
+            ESP_LOGW("ambrosio_net", "Network configuration timed out; restoring last confirmed settings");
+            ambrosio_network::restore_confirmed();
+            ambrosio_network::write("pending", "0");
+            id(network_pending) = false;
+          }
   - interval: 10s
     then:
       - http_request.get:
@@ -127,6 +162,14 @@ interval:
 
 # ── Control del anillo LED (12 SK6812) vía el XMOS (set_led_ring del componente) ──
 globals:
+  - id: network_pending
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: network_pending_since
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: server_online
     type: bool
     restore_value: no
