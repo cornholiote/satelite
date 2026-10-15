@@ -101,6 +101,7 @@ inline bool stage(const std::string &mode, const std::string &ip,
 }
 inline void restore_confirmed() {
   auto config = read("confirmed", "dhcp||||");
+  ESP_LOGI(TAG, "Restoring confirmed network configuration: %s", config.c_str());
   const auto first = config.find('|');
   if (first == std::string::npos) return;
   std::string fields[5];
@@ -118,8 +119,23 @@ inline void restore_confirmed() {
   }
 }
 inline void confirm() {
-  if (read("pending") != "1") return;
+  if (read("pending") != "1") {
+    ESP_LOGW(TAG, "Confirm skipped: pending flag not set in NVS");
+    return;
+  }
   const auto candidate = read("candidate");
-  if (!candidate.empty() && write("confirmed", candidate)) write("pending", "0");
+  if (candidate.empty()) {
+    ESP_LOGE(TAG, "Confirm failed: candidate missing in NVS");
+    return;
+  }
+  if (!write("confirmed", candidate)) {
+    ESP_LOGE(TAG, "Confirm failed: could not persist confirmed network in NVS");
+    return;
+  }
+  if (!write("pending", "0")) {
+    ESP_LOGE(TAG, "Confirmed network saved but pending flag could not be cleared");
+    return;
+  }
+  ESP_LOGI(TAG, "Confirmed network persisted in NVS: %s", read("confirmed").c_str());
 }
 }  // namespace ambrosio_network
