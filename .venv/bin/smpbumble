@@ -1,0 +1,6 @@
+#!/Users/danielgarcia/Cosas/Ambrosio/satelite/.venv/bin/python
+import sys
+from smpclient.transport.bumble.__main__ import smpbumble
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(smpbumble())
