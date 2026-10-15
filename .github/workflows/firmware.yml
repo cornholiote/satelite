@@ -8,6 +8,7 @@ on:
       - 'components/**'
       - '*.tflite'
       - '*.json'
+      - 'version.txt'
       - '.github/workflows/firmware.yml'
   workflow_dispatch:
 
@@ -57,6 +58,18 @@ jobs:
               "".join(f"{key}: {json.dumps(os.environ[env])}\n" for key, env in names.items()),
               encoding="utf-8",
           )
+          PY
+      - name: Set firmware version
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          version = Path('version.txt').read_text().strip()
+          if not __import__('re').fullmatch(r'v[0-9]+(?:\.[0-9]+)*', version):
+              raise SystemExit('Invalid firmware version')
+          cfg = Path('respeaker.yaml')
+          source = cfg.read_text()
+          source = source.replace("firmware_version: 'v1'", f"firmware_version: '{version}'", 1)
+          cfg.write_text(source)
           PY
       - name: Compile firmware
         run: python -m esphome compile respeaker.yaml
