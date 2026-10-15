@@ -1,0 +1,79 @@
+name: Build ReSpeaker firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'respeaker.yaml'
+      - 'components/**'
+      - '*.tflite'
+      - '*.json'
+      - '.github/workflows/firmware.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install ESPHome
+        run: python -m pip install 'esphome==2026.9.1'
+      - name: Prepare secrets
+        env:
+          API_KEY: ${{ secrets.ESPHOME_API_ENCRYPTION_KEY }}
+          WIFI_SSID: ${{ secrets.ESPHOME_WIFI_SSID }}
+          WIFI_PASSWORD: ${{ secrets.ESPHOME_WIFI_PASSWORD }}
+          WIFI_AP_SSID: ${{ secrets.ESPHOME_WIFI_AP_SSID }}
+          WIFI_AP_PASSWORD: ${{ secrets.ESPHOME_WIFI_AP_PASSWORD }}
+          SERVER_HOST: ${{ secrets.AMBROSIERVER_HOST }}
+        run: |
+          python - <<'PY'
+          import os, pathlib, json
+          names = {
+              "api_encryption_key": "API_KEY",
+              "wifi_ssid": "WIFI_SSID",
+              "wifi_password": "WIFI_PASSWORD",
+              "wifi_ap_ssid": "WIFI_AP_SSID",
+              "wifi_ap_password": "WIFI_AP_PASSWORD",
+              "ambrosierver_host": "SERVER_HOST",
+          }
+          missing = [key for key, env in names.items() if not os.getenv(env)]
+          if missing:
+              raise SystemExit("Missing GitHub Actions secrets: " + ", ".join(missing))
+          # JSON string literals are valid YAML scalars and preserve special characters.
+          pathlib.Path("secrets.yaml").write_text(
+              "".join(f"{key}: {json.dumps(os.environ[env])}\n" for key, env in names.items()),
+              encoding="utf-8",
+          )
+          PY
+      - name: Compile firmware
+        run: python -m esphome compile respeaker.yaml
+      - name: Package OTA image
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find .esphome/build -type f -name firmware.bin -print
+          BIN="$(find .esphome/build -type f -name firmware.bin -print -quit)"
+          test -n "$BIN"
+          cp "$BIN" dist/ambrosio-respeaker-ota.bin
+          sha256sum dist/ambrosio-respeaker-ota.bin > dist/sha256sum.txt
+          printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > dist/firmware.json
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambrosio-respeaker-${{ github.sha }}
+          path: dist/
+          retention-days: 30
+          if-no-files-found: error
