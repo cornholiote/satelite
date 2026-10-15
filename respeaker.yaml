@@ -9,6 +9,9 @@
 # El config previo (firmware 1.0.5, ESP master) queda en respeaker-old.yaml.
 # ─────────────────────────────────────────────────────────────────────────────
 
+substitutions:
+  firmware_version: 'v1'
+
 esphome:
   name: ambrosio
   name_add_mac_suffix: true
@@ -238,6 +241,14 @@ audio_streamer:
 
 # Nombre del satélite (se manda al server como identificador/área) y host del
 # Ambrosierver. Persisten en flash; el server puede reescribir el host por API.
+text_sensor:
+  - platform: template
+    name: 'Firmware Ambrosio'
+    entity_category: diagnostic
+    update_interval: never
+    lambda: |-
+      return {"${firmware_version}"};
+
 text:
   - platform: template
     name: "Nombre del Ambrosio"
