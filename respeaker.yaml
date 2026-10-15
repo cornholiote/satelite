@@ -74,9 +74,12 @@ api:
     - service: confirm_network
       then:
         - lambda: |-
-            if (id(server_online) && id(network_pending)) {
+            if (id(network_pending)) {
+              ESP_LOGI("ambrosio_net", "Network confirmation received over encrypted ESPHome API");
               ambrosio_network::confirm();
               id(network_pending) = false;
+            } else {
+              ESP_LOGW("ambrosio_net", "Network confirmation ignored: no pending change");
             }
   # Servicios que llama Ambrosierver para el feedback de color del anillo LED.
     - service: set_led_color
