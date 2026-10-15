@@ -4,6 +4,7 @@
 #include <string>
 #include <cstring>
 #include "esp_netif.h"
+#include "esp_wifi.h"
 #include "nvs.h"
 #include "lwip/ip4_addr.h"
 #include "lwip/dns.h"
@@ -76,6 +77,7 @@ inline bool apply(const std::string &mode, const std::string &ip,
   parse(dns, addr); resolver.ip.u_addr.ip4.addr = addr;
   return esp_netif_set_dns_info(iface, ESP_NETIF_DNS_MAIN, &resolver) == ESP_OK;
 }
+inline void restore_confirmed();
 inline bool stage(const std::string &mode, const std::string &ip,
                   const std::string &mask, const std::string &gateway,
                   const std::string &dns) {
@@ -88,7 +90,14 @@ inline bool stage(const std::string &mode, const std::string &ip,
     write("pending", "0");
     return false;
   }
-  write("candidate", mode + "|" + ip + "|" + mask + "|" + gateway + "|" + dns);
+  if (!write("candidate", mode + "|" + ip + "|" + mask + "|" + gateway + "|" + dns)) {
+    restore_confirmed();
+    write("pending", "0");
+    return false;
+  }
+  // Force a fresh STA connection so Ambrosierver can verify the new address.
+  esp_wifi_disconnect();
+  esp_wifi_connect();
   return true;
 }
 inline void restore_confirmed() {
