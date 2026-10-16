@@ -1,0 +1,36 @@
+/* Ambrosio — ESPHome Web Server v3 theme.
+   Cosmetic only: no controls or entity visibility are changed. */
+:root {
+  color-scheme: dark;
+  --amb-bg: #0c111b;
+  --amb-surface: #172131;
+  --amb-border: #2c3b50;
+  --amb-accent: #73b5ff;
+}
+html, body {
+  background: var(--amb-bg) !important;
+  color: #eaf1fb !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+main, .container { max-width: 1100px; margin-inline: auto; }
+header, nav { border-color: var(--amb-border) !important; }
+h1, h2, h3 { letter-spacing: -.025em; }
+a { color: var(--amb-accent); }
+button, input, select, textarea {
+  border-radius: 9px !important;
+  font: inherit;
+}
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+  outline: 2px solid var(--amb-accent);
+  outline-offset: 2px;
+}
+table { border-collapse: separate; border-spacing: 0 7px; width: 100%; }
+td, th { padding: 10px 12px; }
+tr { background: var(--amb-surface); }
+td:first-child, th:first-child { border-radius: 10px 0 0 10px; }
+td:last-child, th:last-child { border-radius: 0 10px 10px 0; }
+@media (max-width: 680px) {
+  main, .container { padding-inline: 10px; }
+  td, th { padding: 8px; }
+}
