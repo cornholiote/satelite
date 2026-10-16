@@ -82,8 +82,19 @@ inline bool apply(const std::string &mode, const std::string &ip,
   auto *iface = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
   if (!iface) { ESP_LOGE(TAG, "STA interface unavailable"); return false; }
   if (mode == "dhcp") {
-    const auto stopped = esp_netif_dhcpc_stop(iface);
-    ESP_LOGI(TAG, "DHCP stop result: %s", esp_err_to_name(stopped));
+    esp_netif_dhcp_status_t status{};
+    const auto status_result = esp_netif_dhcpc_get_status(iface, &status);
+    if (status_result != ESP_OK) {
+      ESP_LOGE(TAG, "DHCP status failed: %s", esp_err_to_name(status_result));
+      return false;
+    }
+    // ESPHome starts DHCP during Wi-Fi setup. Do not interrupt a running
+    // DHCP client while restoring the saved configuration on reconnect.
+    if (status == ESP_NETIF_DHCP_STARTED) {
+      ESP_LOGI(TAG, "DHCP already running; preserving current lease negotiation");
+      log_dhcp_state();
+      return true;
+    }
     const auto result = esp_netif_dhcpc_start(iface);
     ESP_LOGI(TAG, "DHCP start result: %s", esp_err_to_name(result));
     log_dhcp_state();
