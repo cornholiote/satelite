@@ -1,36 +1,95 @@
-/* Ambrosio — ESPHome Web Server v3 theme.
-   Cosmetic only: no controls or entity visibility are changed. */
+/* Ambrosio · Web Server ESPHome v3
+   Solo presentación: no altera entidades, acciones ni conectividad. */
 :root {
   color-scheme: dark;
-  --amb-bg: #0c111b;
-  --amb-surface: #172131;
-  --amb-border: #2c3b50;
-  --amb-accent: #73b5ff;
+  --amb-bg: #0b101a;
+  --amb-card: #182333;
+  --amb-card-alt: #202e40;
+  --amb-border: #34465c;
+  --amb-text: #eaf2fc;
+  --amb-muted: #a9bbcf;
+  --amb-accent: #6db5ff;
 }
 html, body {
+  min-height: 100%;
   background: var(--amb-bg) !important;
-  color: #eaf1fb !important;
+  color: var(--amb-text) !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
-main, .container { max-width: 1100px; margin-inline: auto; }
-header, nav { border-color: var(--amb-border) !important; }
-h1, h2, h3 { letter-spacing: -.025em; }
-a { color: var(--amb-accent); }
-button, input, select, textarea {
-  border-radius: 9px !important;
-  font: inherit;
+body { margin: 0; }
+h1, h2, h3 { letter-spacing: -.035em; }
+h1 { font-weight: 750; }
+a { color: var(--amb-accent) !important; }
+header { border-bottom: 1px solid var(--amb-border) !important; }
+main, .container {
+  width: min(100% - 32px, 980px) !important;
+  max-width: 980px !important;
+  margin-inline: auto !important;
 }
-button { cursor: pointer; }
+/* ESPHome v3 typically lays out its main cards using a grid.
+   Force a single, readable column and keep the log below the controls. */
+main > div, main > section, .container > div, .container > section {
+  max-width: 100%;
+}
+main :is(.grid, .row, .columns),
+.container :is(.grid, .row, .columns) {
+  max-width: 100%;
+}
+main :is(.grid, .columns),
+.container :is(.grid, .columns) {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+main :is(.row), .container :is(.row) { flex-wrap: wrap; }
+main :is(.row) > *, .container :is(.row) > * { min-width: 0; }
+/* Cards and tab labels */
+:is(.card, .panel, fieldset) {
+  background: var(--amb-card) !important;
+  border: 1px solid var(--amb-border) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 24px #0002;
+}
+:is(.tab, .tab-button, legend) { border-radius: 10px 10px 0 0 !important; }
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 5px;
+}
+tr { background: var(--amb-card-alt); }
+td, th { padding: 12px 14px; }
+td:first-child, th:first-child { border-radius: 9px 0 0 9px; }
+td:last-child, th:last-child { border-radius: 0 9px 9px 0; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]),
+select, textarea {
+  background: #101a29 !important;
+  color: var(--amb-text) !important;
+  border: 1px solid var(--amb-border) !important;
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  box-sizing: border-box;
+}
+input::placeholder { color: var(--amb-muted); }
+button, input[type="button"], input[type="submit"] {
+  border-radius: 9px !important;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.15); }
 button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
-  outline: 2px solid var(--amb-accent);
+  outline: 2px solid var(--amb-accent) !important;
   outline-offset: 2px;
 }
-table { border-collapse: separate; border-spacing: 0 7px; width: 100%; }
-td, th { padding: 10px 12px; }
-tr { background: var(--amb-surface); }
-td:first-child, th:first-child { border-radius: 10px 0 0 10px; }
-td:last-child, th:last-child { border-radius: 0 10px 10px 0; }
+input[type="file"] { max-width: 100%; color: var(--amb-muted); }
+input[type="file"]::file-selector-button {
+  background: var(--amb-card-alt);
+  color: var(--amb-text);
+  border: 1px solid var(--amb-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+pre, code { color: #c8e3ff; }
 @media (max-width: 680px) {
-  main, .container { padding-inline: 10px; }
-  td, th { padding: 8px; }
+  main, .container { width: calc(100% - 20px) !important; }
+  td, th { padding: 9px 8px; }
+  input { max-width: 100%; }
 }
