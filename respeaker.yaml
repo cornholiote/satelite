@@ -67,9 +67,13 @@ api:
         dns: string
       then:
         - lambda: |-
+            ESP_LOGI("ambrosio_net", "Network change requested: mode=%s", mode.c_str());
             if (ambrosio_network::stage(mode, ip, mask, gateway, dns)) {
               id(network_pending_since) = millis();
               id(network_pending) = true;
+              ESP_LOGI("ambrosio_net", "Network change staged: mode=%s, pending=%s", mode.c_str(), ambrosio_network::read("pending").c_str());
+            } else {
+              ESP_LOGE("ambrosio_net", "Network change staging failed: mode=%s, pending=%s", mode.c_str(), ambrosio_network::read("pending").c_str());
             }
     - service: confirm_network
       then:
