@@ -2,7 +2,7 @@ name: Build ReSpeaker firmware
 
 on:
   push:
-    branches: [main, feature/network-config]
+    branches: [main]
     paths:
       - 'respeaker.yaml'
       - 'components/**'
