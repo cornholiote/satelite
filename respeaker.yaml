@@ -79,9 +79,15 @@ api:
       then:
         - lambda: |-
             if (id(network_pending)) {
-              ESP_LOGI("ambrosio_net", "Network confirmation received over encrypted ESPHome API");
-              ambrosio_network::confirm();
-              id(network_pending) = false;
+              const auto candidate = ambrosio_network::read("candidate");
+              if (candidate.rfind("dhcp|", 0) == 0 && !ambrosio_network::dhcp_ready()) {
+                ESP_LOGW("ambrosio_net", "DHCP confirmation deferred: no valid DHCP lease yet");
+                ambrosio_network::log_dhcp_state();
+              } else {
+                ESP_LOGI("ambrosio_net", "Network confirmation received over encrypted ESPHome API");
+                ambrosio_network::confirm();
+                if (ambrosio_network::read("pending") == "0") id(network_pending) = false;
+              }
             } else {
               ESP_LOGW("ambrosio_net", "Network confirmation ignored: no pending change");
             }
@@ -141,6 +147,9 @@ interval:
   - interval: 5s
     then:
       - lambda: |-
+          if (id(network_pending) && ambrosio_network::read("candidate").rfind("dhcp|", 0) == 0) {
+            ambrosio_network::log_dhcp_state();
+          }
           if (id(network_pending) && (uint32_t)(millis() - id(network_pending_since)) > 120000) {
             ESP_LOGW("ambrosio_net", "Network configuration timed out; restoring last confirmed settings");
             ambrosio_network::restore_confirmed();
