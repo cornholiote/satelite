@@ -15,6 +15,8 @@ substitutions:
 esphome:
   name: ambrosio
   name_add_mac_suffix: true
+  includes:
+    - components/ambrosio_network.h
   on_boot:
     priority: -100
     then:
@@ -22,6 +24,9 @@ esphome:
       - lambda: |-
           id(streamer).set_name(id(satellite_name).state);
           id(streamer).set_host(id(server_host).state);
+      - lambda: |-
+          // Pending changes from a previous boot must never be confirmed implicitly.
+          ambrosio_network::write("pending", "0");
       - micro_wake_word.start:
 
 esp32:
@@ -51,8 +56,42 @@ api:
   encryption:
     key: !secret api_encryption_key
   reboot_timeout: 0s
-  # Servicios que llama Ambrosierver para el feedback de color del anillo LED.
+  # Cambios IPv4 experimentales, con rollback tras 120 segundos sin confirmación.
   services:
+    - service: configure_network
+      variables:
+        mode: string
+        ip: string
+        mask: string
+        gateway: string
+        dns: string
+      then:
+        - lambda: |-
+            ESP_LOGI("ambrosio_net", "Network change requested: mode=%s", mode.c_str());
+            if (ambrosio_network::stage(mode, ip, mask, gateway, dns)) {
+              id(network_pending_since) = millis();
+              id(network_pending) = true;
+              ESP_LOGI("ambrosio_net", "Network change staged: mode=%s, pending=%s", mode.c_str(), ambrosio_network::read("pending").c_str());
+            } else {
+              ESP_LOGE("ambrosio_net", "Network change staging failed: mode=%s, pending=%s", mode.c_str(), ambrosio_network::read("pending").c_str());
+            }
+    - service: confirm_network
+      then:
+        - lambda: |-
+            if (id(network_pending)) {
+              const auto candidate = ambrosio_network::read("candidate");
+              if (candidate.rfind("dhcp|", 0) == 0 && !ambrosio_network::dhcp_ready()) {
+                ESP_LOGW("ambrosio_net", "DHCP confirmation deferred: no valid DHCP lease yet");
+                ambrosio_network::log_dhcp_state();
+              } else {
+                ESP_LOGI("ambrosio_net", "Network confirmation received over encrypted ESPHome API");
+                ambrosio_network::confirm();
+                if (ambrosio_network::read("pending") == "0") id(network_pending) = false;
+              }
+            } else {
+              ESP_LOGW("ambrosio_net", "Network confirmation ignored: no pending change");
+            }
+  # Servicios que llama Ambrosierver para el feedback de color del anillo LED.
     - service: set_led_color
       variables:
         red: int
@@ -82,6 +121,15 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   power_save_mode: none
+  on_connect:
+    then:
+      - delay: 1s
+      - lambda: |-
+          // Apply persisted IPv4 only after ESPHome finishes connecting Wi-Fi.
+          // Never override an in-progress staged change.
+          if (!id(network_pending)) {
+            ambrosio_network::restore_confirmed();
+          }
   ap:
     ssid: !secret wifi_ap_ssid
     password: !secret wifi_ap_password
@@ -96,6 +144,18 @@ http_request:
   timeout: 3s
 
 interval:
+  - interval: 5s
+    then:
+      - lambda: |-
+          if (id(network_pending) && ambrosio_network::read("candidate").rfind("dhcp|", 0) == 0) {
+            ambrosio_network::log_dhcp_state();
+          }
+          if (id(network_pending) && (uint32_t)(millis() - id(network_pending_since)) > 120000) {
+            ESP_LOGW("ambrosio_net", "Network configuration timed out; restoring last confirmed settings");
+            ambrosio_network::restore_confirmed();
+            ambrosio_network::write("pending", "0");
+            id(network_pending) = false;
+          }
   - interval: 10s
     then:
       - http_request.get:
@@ -127,6 +187,14 @@ interval:
 
 # ── Control del anillo LED (12 SK6812) vía el XMOS (set_led_ring del componente) ──
 globals:
+  - id: network_pending
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: network_pending_since
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: server_online
     type: bool
     restore_value: no
@@ -242,6 +310,13 @@ audio_streamer:
 # Nombre del satélite (se manda al server como identificador/área) y host del
 # Ambrosierver. Persisten en flash; el server puede reescribir el host por API.
 text_sensor:
+  - platform: template
+    name: 'Ambrosio Network Configuration'
+    id: ambrosio_network_configuration
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: |-
+      return ambrosio_network::read("confirmed", "dhcp||||");
   - platform: template
     name: 'Firmware Ambrosio'
     entity_category: diagnostic
