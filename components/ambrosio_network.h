@@ -5,6 +5,7 @@
 #include <cstring>
 #include "esp_netif.h"
 #include "esp_wifi.h"
+#include "esp_event.h"
 #include "nvs.h"
 #include "lwip/ip4_addr.h"
 #include "lwip/dns.h"
@@ -54,14 +55,38 @@ inline bool write(const char *key, const std::string &value) {
   nvs_close(handle);
   return commit == ESP_OK;
 }
+inline bool dhcp_ready() {
+  auto *iface = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (!iface) return false;
+  esp_netif_dhcp_status_t status{};
+  esp_netif_ip_info_t info{};
+  if (esp_netif_dhcpc_get_status(iface, &status) != ESP_OK ||
+      esp_netif_get_ip_info(iface, &info) != ESP_OK) return false;
+  return status == ESP_NETIF_DHCP_STARTED && info.ip.addr != 0 &&
+         info.netmask.addr != 0 && info.gw.addr != 0;
+}
+inline void log_dhcp_state() {
+  auto *iface = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (!iface) return;
+  esp_netif_dhcp_status_t status{};
+  esp_netif_ip_info_t info{};
+  const auto sr = esp_netif_dhcpc_get_status(iface, &status);
+  const auto ir = esp_netif_get_ip_info(iface, &info);
+  ESP_LOGI(TAG, "DHCP state: status=%d status_err=%s ip_err=%s ip=" IPSTR " gateway=" IPSTR,
+           static_cast<int>(status), esp_err_to_name(sr), esp_err_to_name(ir),
+           IP2STR(&info.ip), IP2STR(&info.gw));
+}
 inline bool apply(const std::string &mode, const std::string &ip,
                   const std::string &mask, const std::string &gateway,
                   const std::string &dns) {
   auto *iface = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
   if (!iface) { ESP_LOGE(TAG, "STA interface unavailable"); return false; }
   if (mode == "dhcp") {
-    esp_netif_dhcpc_stop(iface);
+    const auto stopped = esp_netif_dhcpc_stop(iface);
+    ESP_LOGI(TAG, "DHCP stop result: %s", esp_err_to_name(stopped));
     const auto result = esp_netif_dhcpc_start(iface);
+    ESP_LOGI(TAG, "DHCP start result: %s", esp_err_to_name(result));
+    log_dhcp_state();
     return result == ESP_OK || result == ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED;
   }
   if (mode != "static" || !valid(ip, mask, gateway, dns)) return false;
