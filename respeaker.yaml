@@ -317,7 +317,9 @@ text_sensor:
     entity_category: diagnostic
     update_interval: 5s
     lambda: |-
-      return ambrosio_network::read("confirmed", "dhcp||||");
+      const config = ambrosio_network::read("confirmed", "dhcp||||");
+      if (config == "dhcp" || config.rfind("dhcp|", 0) == 0) return {"DHCP"};
+      return config;
   - platform: template
     name: 'Firmware Ambrosio'
     entity_category: diagnostic
