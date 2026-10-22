@@ -365,7 +365,7 @@ respeaker_xvf3800:
   dfu_version:
     name: "XMOS Firmware Version"
   firmware:
-    url: https://github.com/formatBCE/Respeaker-XVF3800-ESPHome-integration/raw/refs/heads/main/application_xvf3800_inthost-lr48-sqr-i2c-v1.0.7-release.bin
+    url: https://raw.githubusercontent.com/formatBCE/Respeaker-XVF3800-ESPHome-integration/main/application_xvf3800_inthost-lr48-sqr-i2c-v1.0.7-release.bin
     version: "1.0.7"
     md5: 043a848f544ff2c7265ac19685daf5de
 
