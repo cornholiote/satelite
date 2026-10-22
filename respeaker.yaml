@@ -136,6 +136,11 @@ wifi:
 
 captive_portal:
 
+# Aprovisionamiento Wi-Fi por USB serie usando el protocolo estándar Improv.
+# Permite cambiar SSID/contraseña sin recompilar. Requiere una nueva compilación
+# y pruebas en hardware antes de utilizarlo como instalador universal.
+improv_serial:
+
 web_server:
   port: 80
   version: 3
