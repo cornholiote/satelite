@@ -92,6 +92,18 @@ jobs:
           cp "$BIN" dist/ambrosio-respeaker-ota.bin
           sha256sum dist/ambrosio-respeaker-ota.bin > dist/sha256sum.txt
           printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > dist/firmware.json
+      - name: Package initial USB factory image
+        run: |
+          set -euo pipefail
+          # A full factory image must include the bootloader, partition table and application.
+          # Never relabel an OTA-only image as a USB image.
+          FACTORY="$(find .esphome/build -type f -name firmware.factory.bin -print -quit)"
+          if [ -z "$FACTORY" ]; then
+            echo "::error::Missing firmware.factory.bin; cannot safely support initial USB flashing"
+            exit 1
+          fi
+          cp "$FACTORY" dist/ambrosio-respeaker-factory.bin
+          sha256sum dist/ambrosio-respeaker-factory.bin > dist/factory-sha256sum.txt
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
