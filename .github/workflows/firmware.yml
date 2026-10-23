@@ -2,7 +2,7 @@ name: Build ReSpeaker firmware
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/wakeword-false-positives]
     paths:
       - 'respeaker.yaml'
       - 'components/**'
@@ -68,7 +68,10 @@ jobs:
               raise SystemExit('Invalid firmware version')
           cfg = Path('respeaker.yaml')
           source = cfg.read_text()
-          source = source.replace("firmware_version: 'v1'", f"firmware_version: '{version}'", 1)
+          import re
+          source, count = re.subn(r"firmware_version: 'v[0-9]+(?:\.[0-9]+)*'", f"firmware_version: '{version}'", source, count=1)
+          if count != 1:
+              raise SystemExit('Firmware version declaration not found')
           cfg.write_text(source)
           PY
       - name: Compile firmware
