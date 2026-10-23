@@ -136,6 +136,11 @@ wifi:
 
 captive_portal:
 
+# Aprovisionamiento Wi-Fi por USB serie usando el protocolo estándar Improv.
+# Permite cambiar SSID/contraseña sin recompilar. Requiere una nueva compilación
+# y pruebas en hardware antes de utilizarlo como instalador universal.
+improv_serial:
+
 web_server:
   port: 80
   version: 3
@@ -312,12 +317,25 @@ audio_streamer:
 # Ambrosierver. Persisten en flash; el server puede reescribir el host por API.
 text_sensor:
   - platform: template
+    name: 'Modo de red'
+    id: ambrosio_network_mode
+    icon: mdi:ip-network
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: |-
+      const auto config = ambrosio_network::read("confirmed", "dhcp||||");
+      if (config == "dhcp" || config.rfind("dhcp|", 0) == 0) return {"DHCP"};
+      if (config == "static" || config.rfind("static|", 0) == 0) return {"IP fija"};
+      return {"Desconocido"};
+  - platform: template
     name: 'Ambrosio Network Configuration'
     id: ambrosio_network_configuration
     entity_category: diagnostic
     update_interval: 5s
     lambda: |-
-      return ambrosio_network::read("confirmed", "dhcp||||");
+      const auto config = ambrosio_network::read("confirmed", "dhcp||||");
+      if (config == "dhcp" || config.rfind("dhcp|", 0) == 0) return {"DHCP"};
+      return config;
   - platform: template
     name: 'Firmware Ambrosio'
     entity_category: diagnostic
@@ -365,7 +383,7 @@ respeaker_xvf3800:
   dfu_version:
     name: "XMOS Firmware Version"
   firmware:
-    url: https://github.com/formatBCE/Respeaker-XVF3800-ESPHome-integration/raw/refs/heads/main/application_xvf3800_inthost-lr48-sqr-i2c-v1.0.7-release.bin
+    url: https://raw.githubusercontent.com/cornholiote/satelite/feature/usb-factory-artifact/firmware/application_xvf3800_inthost-lr48-sqr-i2c-v1.0.7-release.bin
     version: "1.0.7"
     md5: 043a848f544ff2c7265ac19685daf5de
 
