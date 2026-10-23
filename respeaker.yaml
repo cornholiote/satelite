@@ -10,7 +10,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 substitutions:
-  firmware_version: 'v1'
+  firmware_version: 'v1.2'
 
 esphome:
   name: ambrosio
