@@ -476,8 +476,8 @@ micro_wake_word:
     # dispararse (memoria/arena). Mantener SOLO este.
     - model: ./oye_ambrosio.json
       id: oye_ambrosio
-      probability_cutoff: 82%
-      sliding_window_size: 3
+      probability_cutoff: 90%
+      sliding_window_size: 5
   on_wake_word_detected:
     then:
       - logger.log:
