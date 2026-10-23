@@ -317,6 +317,17 @@ audio_streamer:
 # Ambrosierver. Persisten en flash; el server puede reescribir el host por API.
 text_sensor:
   - platform: template
+    name: 'Modo de red'
+    id: ambrosio_network_mode
+    icon: mdi:ip-network
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: |-
+      const auto config = ambrosio_network::read("confirmed", "dhcp||||");
+      if (config == "dhcp" || config.rfind("dhcp|", 0) == 0) return {"DHCP"};
+      if (config == "static" || config.rfind("static|", 0) == 0) return {"IP fija"};
+      return {"Desconocido"};
+  - platform: template
     name: 'Ambrosio Network Configuration'
     id: ambrosio_network_configuration
     entity_category: diagnostic
