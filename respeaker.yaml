@@ -364,10 +364,8 @@ respeaker_xvf3800:
     update_interval: 1s
   dfu_version:
     name: "XMOS Firmware Version"
-  firmware:
-    url: https://github.com/formatBCE/Respeaker-XVF3800-ESPHome-integration/raw/refs/heads/main/application_xvf3800_inthost-lr48-sqr-i2c-v1.0.7-release.bin
-    version: "1.0.7"
-    md5: 043a848f544ff2c7265ac19685daf5de
+  # El firmware XMOS 1.0.7 ya está instalado en el DSP. No descargar un binario
+  # externo durante la compilación; la actualización XMOS se gestiona por separado.
 
 # ── DAC del speaker (chip AIC3104 en 0x18) ──
 audio_dac:
