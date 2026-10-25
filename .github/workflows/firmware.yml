@@ -115,7 +115,7 @@ jobs:
           sha256sum dist/ambrosio-respeaker-ota.bin > dist/sha256sum.txt
           printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > dist/firmware.json
       - name: Upload firmware artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ambrosio-respeaker-${{ github.sha }}
           path: dist/
