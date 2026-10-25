@@ -176,12 +176,12 @@ jobs:
               echo "::notice::Release $TAG already exists; not overwriting."
               continue
             fi
-            gh release create "$TAG" \\
-              "dist/$VARIANT/ambrosio-respeaker-ota.bin" \\
-              "dist/$VARIANT/sha256sum.txt" \\
-              "dist/$VARIANT/firmware.json" \\
-              --target "$GITHUB_SHA" \\
-              --title "$TITLE" \\
+            gh release create "$TAG" \
+              "dist/$VARIANT/ambrosio-respeaker-ota.bin" \
+              "dist/$VARIANT/sha256sum.txt" \
+              "dist/$VARIANT/firmware.json" \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
               --notes "Firmware OTA $VARIANT, versión común $VERSION, commit $GITHUB_SHA."
           done
 
