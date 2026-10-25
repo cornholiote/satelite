@@ -91,6 +91,27 @@ api:
             } else {
               ESP_LOGW("ambrosio_net", "Network confirmation ignored: no pending change");
             }
+    # Cambio de red Wi-Fi desde Ambrosierver. Si en 30 s no conecta a la nueva,
+    # wifi.configure vuelve sola a la anterior (contraseña mal escrita, etc.).
+    - service: configure_wifi
+      variables:
+        ssid: string
+        password: string
+      then:
+        - logger.log:
+            format: "Wi-Fi change requested: ssid=%s"
+            args: [ssid.c_str()]
+        - wifi.configure:
+            ssid: !lambda 'return ssid;'
+            password: !lambda 'return password;'
+            save: true
+            timeout: 30s
+            on_connect:
+              - logger.log: "Wi-Fi change applied"
+            on_error:
+              - logger.log:
+                  level: WARN
+                  format: "Wi-Fi change failed; restored previous network"
   # Servicios que llama Ambrosierver para el feedback de color del anillo LED.
     - service: set_led_color
       variables:
@@ -171,7 +192,8 @@ interval:
     then:
       - lambda: |-
           uint32_t now = millis();
-          if (!id(server_online) && !id(streaming_audio) && (int32_t)(now - id(led_hold_until)) >= 0) {
+          const bool idle = !id(streaming_audio) && (int32_t)(now - id(led_hold_until)) >= 0;
+          if (!id(server_online) && idle) {
             uint32_t phase = now % 1600;
             uint8_t b = 0;
             if (phase < 180) b = phase < 90 ? phase * 150 / 90 : (180 - phase) * 150 / 90;
@@ -180,10 +202,21 @@ interval:
             for (int i = 0; i < 12; i++) colors[i] = (uint32_t) b << 16;
             id(respeaker).set_led_ring(colors);
             id(heartbeat_visible) = true;
-          } else if (id(heartbeat_visible)) {
+            id(mute_visible) = false;
+          } else if (id(mic_mute_switch).state && idle) {
+            // Micro silenciado: rojo fijo tenue (el latido rojo es "sin servidor").
+            if (!id(mute_visible)) {
+              uint32_t colors[12];
+              for (int i = 0; i < 12; i++) colors[i] = (uint32_t) 40 << 16;
+              id(respeaker).set_led_ring(colors);
+              id(mute_visible) = true;
+            }
+            id(heartbeat_visible) = false;
+          } else if (id(heartbeat_visible) || (id(mute_visible) && !id(mic_mute_switch).state)) {
             uint32_t colors[12] = {0};
             id(respeaker).set_led_ring(colors);
             id(heartbeat_visible) = false;
+            id(mute_visible) = false;
           }
 
 # ── Control del anillo LED (12 SK6812) vía el XMOS (set_led_ring del componente) ──
@@ -205,6 +238,10 @@ globals:
     restore_value: no
     initial_value: 'false'
   - id: heartbeat_visible
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: mute_visible
     type: bool
     restore_value: no
     initial_value: 'false'
@@ -318,6 +355,11 @@ text_sensor:
     update_interval: 5s
     lambda: |-
       return ambrosio_network::read("confirmed", "dhcp||||");
+  # Red Wi-Fi actual, para mostrarla en Ambrosierver.
+  - platform: wifi_info
+    ssid:
+      name: 'WiFi SSID'
+      entity_category: diagnostic
   - platform: template
     name: 'Firmware Ambrosio'
     entity_category: diagnostic
