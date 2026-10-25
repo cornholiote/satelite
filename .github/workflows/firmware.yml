@@ -111,7 +111,10 @@ jobs:
           s = s.replace("firmware_version: '" + os.environ['RELEASE_VERSION'] + "'", "firmware_version: '" + os.environ['RELEASE_VERSION'] + "-jarvis'")
           old = '    - model: ./oye_ambrosio.json\n      id: oye_ambrosio'
           assert s.count(old) == 1, 'Original wakeword declaration missing'
-          p.write_text(s.replace(old, '    - model: hey_jarvis\n      id: hey_jarvis'))
+          replacement = '    - model: hey_jarvis\n      id: hey_jarvis'
+          s = s.replace(old + '\n      probability_cutoff: 90%\n      sliding_window_size: 5', replacement)
+          assert replacement in s, 'Jarvis model replacement failed'
+          p.write_text(s)
           PY
             fi
             rm -rf .esphome/build
