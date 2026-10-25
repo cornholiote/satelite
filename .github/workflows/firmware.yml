@@ -82,7 +82,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import os
-          version = os.environ.get('RELEASE_VERSION') or Path('version.txt').read_text().strip()
+          version = os.environ.get('RELEASE_VERSION') or (f"v9.0.{os.environ['GITHUB_RUN_NUMBER']}" if os.environ.get('GITHUB_REF') == 'refs/heads/hey_jarvis' else Path('version.txt').read_text().strip())
           if not __import__('re').fullmatch(r'v[0-9]+(?:\.[0-9]+)*', version):
               raise SystemExit('Invalid firmware version')
           cfg = Path('respeaker.yaml')
@@ -148,7 +148,12 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(tr -d '\r\n' < version.txt)"
-          TAG="test-${VERSION}-${GITHUB_SHA:0:7}"
+          if [ "$GITHUB_REF" = "refs/heads/hey_jarvis" ]; then
+            VERSION="v9.0.${GITHUB_RUN_NUMBER}"
+            TAG="hey-jarvis-${VERSION}-${GITHUB_SHA:0:7}"
+          else
+            TAG="test-${VERSION}-${GITHUB_SHA:0:7}"
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "::notice::Prerelease $TAG already exists; not overwriting."
             exit 0
