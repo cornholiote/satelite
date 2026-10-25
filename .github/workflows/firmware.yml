@@ -2,7 +2,7 @@ name: Build ReSpeaker firmware
 
 on:
   push:
-    branches: [main, feature/wakeword-false-positives, feature/network-config, feature/alternative-wakeword]
+    branches: [main, feature/wakeword-false-positives, feature/network-config, hey_jarvis]
     paths:
       - 'respeaker.yaml'
       - 'components/**'
