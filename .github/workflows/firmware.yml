@@ -109,9 +109,9 @@ jobs:
           s = p.read_text()
           import os
           s = s.replace("firmware_version: '" + os.environ['RELEASE_VERSION'] + "'", "firmware_version: '" + os.environ['RELEASE_VERSION'] + "-jarvis'")
-          old = '    - model: ./oye_ambrosio.json\\n      id: oye_ambrosio'
+          old = '    - model: ./oye_ambrosio.json\n      id: oye_ambrosio'
           assert s.count(old) == 1, 'Original wakeword declaration missing'
-          p.write_text(s.replace(old, '    - model: hey_jarvis\\n      id: hey_jarvis'))
+          p.write_text(s.replace(old, '    - model: hey_jarvis\n      id: hey_jarvis'))
           PY
             fi
             rm -rf .esphome/build
