@@ -122,7 +122,7 @@ jobs:
             mkdir -p "dist/$VARIANT"
             cp "$BIN" "dist/$VARIANT/ambrosio-respeaker-ota.bin"
             (cd "dist/$VARIANT" && sha256sum ambrosio-respeaker-ota.bin > sha256sum.txt)
-            printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml","variant":"%s"}\\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$VARIANT" > "dist/$VARIANT/firmware.json"
+            printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml","variant":"%s"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$VARIANT" > "dist/$VARIANT/firmware.json"
           done
           cp /tmp/respeaker-original.yaml respeaker.yaml
       - name: Compile firmware
