@@ -456,7 +456,7 @@ media_player:
       sample_rate: 48000
       num_channels: 1
 
-# ── Wake word "oye ambrosio" (modelo local), leyendo el mic 48k vía el fork ──
+# ── Wake word "hey jarvis", leyendo el mic 48k vía el fork ──
 micro_wake_word:
   id: mww
   microphone:
@@ -470,10 +470,9 @@ micro_wake_word:
     probability_cutoff: 85%
     sliding_window_size: 5
   models:
-    # OJO: cargar un segundo modelo a la vez hace que oye_ambrosio deje de
-    # dispararse (memoria/arena). Mantener SOLO este.
-    - model: ./oye_ambrosio.json
-      id: oye_ambrosio
+    # Un único modelo de wakeword para evitar problemas de memoria.
+    - model: hey_jarvis
+      id: hey_jarvis
       probability_cutoff: 90%
       sliding_window_size: 5
   on_wake_word_detected:
