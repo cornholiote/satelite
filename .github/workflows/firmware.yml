@@ -59,11 +59,30 @@ jobs:
               encoding="utf-8",
           )
           PY
+      - name: Choose next stable firmware version
+        if: github.ref == 'refs/heads/main'
+        id: stable_version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess
+          releases = json.loads(subprocess.check_output(['gh', 'release', 'list', '--json', 'tagName', '--limit', '100'], text=True))
+          versions = [int(m.group(1)) for r in releases if (m := re.fullmatch(r'v1\\.0\\.(\\d+)', r['tagName']))]
+          exists_base = any(r['tagName'] == 'v1.0' for r in releases)
+          version = 'v1.0' if not exists_base and not versions else f'v1.0.{max(versions, default=0) + 1}'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write(f'version={version}\\n')
+          print('Publishing firmware', version)
+          PY
       - name: Set firmware version
+        env:
+          RELEASE_VERSION: ${{ steps.stable_version.outputs.version }}
         run: |
           python - <<'PY'
           from pathlib import Path
-          version = Path('version.txt').read_text().strip()
+          import os
+          version = os.environ.get('RELEASE_VERSION') or Path('version.txt').read_text().strip()
           if not __import__('re').fullmatch(r'v[0-9]+(?:\.[0-9]+)*', version):
               raise SystemExit('Invalid firmware version')
           cfg = Path('respeaker.yaml')
@@ -109,7 +128,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\r\n' < version.txt)"
+          VERSION="${{ steps.stable_version.outputs.version }}"
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo "::notice::Release $VERSION already exists; not overwriting an immutable firmware version."
             exit 0
