@@ -93,9 +93,39 @@ jobs:
               raise SystemExit('Firmware version declaration not found')
           cfg.write_text(source)
           PY
+      - name: Build both wakeword variants
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          cp respeaker.yaml /tmp/respeaker-original.yaml
+          for VARIANT in ambrosio hey_jarvis; do
+            cp /tmp/respeaker-original.yaml respeaker.yaml
+            if [ "$VARIANT" = "hey_jarvis" ]; then
+              python - <<'PY'
+          from pathlib import Path
+          p = Path('respeaker.yaml')
+          s = p.read_text()
+          old = '    - model: ./oye_ambrosio.json\\n      id: oye_ambrosio'
+          assert s.count(old) == 1, 'Original wakeword declaration missing'
+          p.write_text(s.replace(old, '    - model: hey_jarvis\\n      id: hey_jarvis'))
+          PY
+            fi
+            rm -rf .esphome/build
+            python -m esphome compile respeaker.yaml
+            BIN="$(find .esphome/build -type f -name firmware.ota.bin -print -quit)"
+            if [ -z "$BIN" ]; then BIN="$(find .esphome/build -type f -name firmware.bin -print -quit)"; fi
+            test -n "$BIN"
+            mkdir -p "dist/$VARIANT"
+            cp "$BIN" "dist/$VARIANT/ambrosio-respeaker-ota.bin"
+            (cd "dist/$VARIANT" && sha256sum ambrosio-respeaker-ota.bin > sha256sum.txt)
+            printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml","variant":"%s"}\\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$VARIANT" > "dist/$VARIANT/firmware.json"
+          done
+          cp /tmp/respeaker-original.yaml respeaker.yaml
       - name: Compile firmware
+        if: github.ref != 'refs/heads/main'
         run: python -m esphome compile respeaker.yaml
       - name: Package OTA image
+        if: github.ref != 'refs/heads/main'
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -115,6 +145,7 @@ jobs:
           sha256sum dist/ambrosio-respeaker-ota.bin > dist/sha256sum.txt
           printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > dist/firmware.json
       - name: Upload firmware artifact
+        if: github.ref != 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
           name: ambrosio-respeaker-${{ github.sha }}
@@ -122,24 +153,33 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Publish stable GitHub Release
+      - name: Publish both stable firmware variants
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.stable_version.outputs.version }}
         run: |
           set -euo pipefail
-          VERSION="${{ steps.stable_version.outputs.version }}"
-          if gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "::notice::Release $VERSION already exists; not overwriting an immutable firmware version."
-            exit 0
-          fi
-          gh release create "$VERSION" \
-            dist/ambrosio-respeaker-ota.bin \
-            dist/sha256sum.txt \
-            dist/firmware.json \
-            --target "$GITHUB_SHA" \
-            --title "Ambrosio $VERSION" \
-            --notes "Firmware OTA para satélites Ambrosio. Compilado desde el commit $GITHUB_SHA."
+          for VARIANT in ambrosio hey_jarvis; do
+            if [ "$VARIANT" = "ambrosio" ]; then
+              TAG="$VERSION"
+              TITLE="Oye Ambrosio $VERSION"
+            else
+              TAG="hey-jarvis-$VERSION"
+              TITLE="Hey Jarvis $VERSION"
+            fi
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "::notice::Release $TAG already exists; not overwriting."
+              continue
+            fi
+            gh release create "$TAG" \\
+              "dist/$VARIANT/ambrosio-respeaker-ota.bin" \\
+              "dist/$VARIANT/sha256sum.txt" \\
+              "dist/$VARIANT/firmware.json" \\
+              --target "$GITHUB_SHA" \\
+              --title "$TITLE" \\
+              --notes "Firmware OTA $VARIANT, versión común $VERSION, commit $GITHUB_SHA."
+          done
 
       - name: Publish experimental GitHub prerelease
         if: github.ref != 'refs/heads/main'
