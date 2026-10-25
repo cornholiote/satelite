@@ -68,11 +68,11 @@ jobs:
           python - <<'PY'
           import json, os, re, subprocess
           releases = json.loads(subprocess.check_output(['gh', 'release', 'list', '--json', 'tagName', '--limit', '100'], text=True))
-          versions = [int(m.group(1)) for r in releases if (m := re.fullmatch(r'v1\\.0\\.(\\d+)', r['tagName']))]
+          versions = [int(m.group(1)) for r in releases if (m := re.fullmatch(r'v1\.0\.(\d+)', r['tagName']))]
           exists_base = any(r['tagName'] == 'v1.0' for r in releases)
           version = 'v1.0' if not exists_base and not versions else f'v1.0.{max(versions, default=0) + 1}'
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              out.write(f'version={version}\\n')
+              out.write(f'version={version}\n')
           print('Publishing firmware', version)
           PY
       - name: Set firmware version
