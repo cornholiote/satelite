@@ -519,13 +519,13 @@ micro_wake_word:
   stop_after_detection: true
   vad:
     model: github://esphome/micro-wake-word-models/models/v2/vad.json@main
-    probability_cutoff: 85%
+    probability_cutoff: 95%
     sliding_window_size: 5
   models:
     # OJO: cargar un segundo modelo a la vez hace que oye_ambrosio deje de
     # dispararse (memoria/arena). Mantener SOLO este.
-    - model: ./oye_ambrosio.json
-      id: oye_ambrosio
+    - model: ./oye_pepe.json
+      id: oye_pepe
       probability_cutoff: 90%
       sliding_window_size: 5
   on_wake_word_detected:
