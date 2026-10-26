@@ -112,6 +112,13 @@ api:
               - logger.log:
                   level: WARN
                   format: "Wi-Fi change failed; restored previous network"
+    # Escaneo bajo demanda para que Ambrosierver ofrezca la lista de redes.
+    # El resultado llega por el text_sensor "WiFi Scan Results".
+    - service: scan_wifi
+      then:
+        - lambda: |-
+            if (!ambrosio_network::start_wifi_scan())
+              ESP_LOGW("ambrosio_net", "Wi-Fi scan could not be started");
   # Servicios que llama Ambrosierver para el feedback de color del anillo LED.
     - service: set_led_color
       variables:
@@ -360,6 +367,9 @@ text_sensor:
     ssid:
       name: 'WiFi SSID'
       entity_category: diagnostic
+    # Redes visibles ("SSID: -XXdB" por línea), para elegir red en Ambrosierver.
+    scan_results:
+      name: 'WiFi Scan Results'
   - platform: template
     name: 'Firmware Ambrosio'
     entity_category: diagnostic

@@ -113,6 +113,22 @@ inline bool apply(const std::string &mode, const std::string &ip,
   parse(dns, addr); resolver.ip.u_addr.ip4.addr = addr;
   return esp_netif_set_dns_info(iface, ESP_NETIF_DNS_MAIN, &resolver) == ESP_OK;
 }
+// Background scan while connected: the radio returns to the home channel between
+// scanned channels, so the API link survives. ESPHome's SCAN_DONE handler collects
+// the records and publishes them through the wifi_info scan_results sensor.
+inline bool start_wifi_scan() {
+  wifi_scan_config_t config{};
+  config.show_hidden = false;
+  config.scan_type = WIFI_SCAN_TYPE_ACTIVE;
+  config.scan_time.active.min = 100;
+  config.scan_time.active.max = 300;
+#ifdef CONFIG_SOC_WIFI_SUPPORTED
+  config.coex_background_scan = true;
+#endif
+  const auto result = esp_wifi_scan_start(&config, false);
+  ESP_LOGI(TAG, "Wi-Fi scan start result: %s", esp_err_to_name(result));
+  return result == ESP_OK;
+}
 inline void restore_confirmed();
 inline bool stage(const std::string &mode, const std::string &ip,
                   const std::string &mask, const std::string &gateway,
