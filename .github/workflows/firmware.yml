@@ -104,7 +104,7 @@ jobs:
           mkdir -p dist
           cp "$BIN" dist/ambrosio-respeaker-ota.bin
           (cd dist && sha256sum ambrosio-respeaker-ota.bin > sha256sum.txt)
-          printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml","variant":"custom"}\\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > dist/firmware.json
+          printf '{"commit":"%s","workflow_run":"%s","source":"respeaker.yaml","variant":"custom"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > dist/firmware.json
       - name: Compile firmware
         if: github.ref != 'refs/heads/main'
         run: python -m esphome compile respeaker.yaml
@@ -148,12 +148,12 @@ jobs:
             echo "::notice::Release $VERSION already exists; not overwriting."
             exit 0
           fi
-          gh release create "$VERSION" \\
-            dist/ambrosio-respeaker-ota.bin \\
-            dist/sha256sum.txt \\
-            dist/firmware.json \\
-            --target "$GITHUB_SHA" \\
-            --title "Ambrosio firmware $VERSION" \\
+          gh release create "$VERSION" \
+            dist/ambrosio-respeaker-ota.bin \
+            dist/sha256sum.txt \
+            dist/firmware.json \
+            --target "$GITHUB_SHA" \
+            --title "Ambrosio firmware $VERSION" \
             --notes "Firmware OTA compilado desde respeaker.yaml, commit $GITHUB_SHA."
       - name: Publish experimental GitHub prerelease
         if: github.ref != 'refs/heads/main'
