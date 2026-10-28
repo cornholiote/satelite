@@ -507,27 +507,21 @@ media_player:
       format: FLAC
       sample_rate: 48000
       num_channels: 1
-
-# ── Wake word "oye ambrosio" (modelo local), leyendo el mic 48k vía el fork ──
 micro_wake_word:
   id: mww
   microphone:
     microphone: i2s_mics
     channels: 1
-  # Se para al detectar; el audio_streamer toma el micro y, al acabar el stream
-  # (silencio/error), rearma micro_wake_word desde su on_end/on_error.
   stop_after_detection: true
   vad:
     model: github://esphome/micro-wake-word-models/models/v2/vad.json@main
     probability_cutoff: 95%
     sliding_window_size: 5
   models:
-    # OJO: cargar un segundo modelo a la vez hace que oye_ambrosio deje de
-    # dispararse (memoria/arena). Mantener SOLO este.
     - model: ./oye_ambrosio.json
       id: oye_ambrosio
-      probability_cutoff: 90%
-      sliding_window_size: 5
+      probability_cutoff: 98%
+      sliding_window_size: 7
   on_wake_word_detected:
     then:
       - logger.log:
