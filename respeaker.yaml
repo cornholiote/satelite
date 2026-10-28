@@ -532,25 +532,10 @@ micro_wake_word:
       - audio_streamer.start: streamer
 binary_sensor:
   - platform: gpio
-    id: boton_volumen_mas
-    name: "Botón Volumen Más"
     pin:
       number: GPIO1
-      mode: INPUT_PULLUP
+      mode:
+        input: true
+        pullup: true
       inverted: true
-    filters:
-      - delayed_on: 30ms
-    on_press:
-      - logger.log: "VOLUMEN + PULSADO"
-
-  - platform: gpio
-    id: boton_volumen_menos
-    name: "Botón Volumen Menos"
-    pin:
-      number: GPIO2
-      mode: INPUT_PULLUP
-      inverted: true
-    filters:
-      - delayed_on: 30ms
-    on_press:
-      - logger.log: "VOLUMEN - PULSADO"
+    name: "Botón Ambrosio"
