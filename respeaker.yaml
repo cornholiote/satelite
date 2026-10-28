@@ -530,3 +530,27 @@ micro_wake_word:
       - lambda: 'id(streaming_audio) = true; id(led_r) = 0; id(led_g) = 80; id(led_b) = 255;'  # azul: escuchando
       - script.execute: led_solid
       - audio_streamer.start: streamer
+binary_sensor:
+  - platform: gpio
+    id: boton_volumen_mas
+    name: "Botón Volumen Más"
+    pin:
+      number: GPIO1
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      - logger.log: "VOLUMEN + PULSADO"
+
+  - platform: gpio
+    id: boton_volumen_menos
+    name: "Botón Volumen Menos"
+    pin:
+      number: GPIO2
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      - logger.log: "VOLUMEN - PULSADO"
