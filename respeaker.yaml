@@ -544,9 +544,13 @@ binary_sensor:
       - delayed_on: 30ms
       - delayed_off: 30ms
     on_press:
-      - logger.log: "BOTÓN: pulsado"
+      - logger.log:
+          level: INFO
+          format: "BOTÓN: pulsado"
     on_release:
-      - logger.log: "BOTÓN: soltado"
+      - logger.log:
+          level: INFO
+          format: "BOTÓN: soltado"
   - platform: gpio
     pin:
       number: GPIO4   # D3 del conector de 4 pines
@@ -560,6 +564,10 @@ binary_sensor:
       - delayed_on: 30ms
       - delayed_off: 30ms
     on_press:
-      - logger.log: "BOTÓN 2: pulsado"
+      - logger.log:
+          level: INFO
+          format: "BOTÓN 2: pulsado"
     on_release:
-      - logger.log: "BOTÓN 2: soltado"
+      - logger.log:
+          level: INFO
+          format: "BOTÓN 2: soltado"
