@@ -547,3 +547,19 @@ binary_sensor:
       - logger.log: "BOTÓN: pulsado"
     on_release:
       - logger.log: "BOTÓN: soltado"
+  - platform: gpio
+    pin:
+      number: GPIO4   # D3 del conector de 4 pines
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Botón Ambrosio 2"
+    id: boton_ambrosio_2
+    filters:
+      - delayed_on: 30ms
+      - delayed_off: 30ms
+    on_press:
+      - logger.log: "BOTÓN 2: pulsado"
+    on_release:
+      - logger.log: "BOTÓN 2: soltado"
