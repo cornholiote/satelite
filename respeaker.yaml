@@ -13,7 +13,7 @@ substitutions:
   firmware_version: 'v1.2'
   # Indicador de volumen: 6 LEDs consecutivos del anillo (índices 0-11).
   # vol_led_first es el LED del 0 %; vol_led_dir 1 o -1 según el sentido de llenado.
-  vol_led_first: '0'
+  vol_led_first: '9'
   vol_led_dir: '1'
 
 esphome:
