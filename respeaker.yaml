@@ -11,6 +11,10 @@
 
 substitutions:
   firmware_version: 'v1.2'
+  # Indicador de volumen: 6 LEDs consecutivos del anillo (índices 0-11).
+  # vol_led_first es el LED del 0 %; vol_led_dir 1 o -1 según el sentido de llenado.
+  vol_led_first: '0'
+  vol_led_dir: '1'
 
 esphome:
   name: ambrosio
@@ -297,6 +301,37 @@ script:
             - delay: 250ms
             - script.execute: led_off
             - delay: 200ms
+  # Muestra el volumen 2 s en 6 LEDs: cada LED es 1/6 del total y el último se
+  # enciende en proporción; los del rango sin llegar quedan muy tenues como escala.
+  # No se muestra mientras se escucha una orden (anillo azul).
+  - id: led_volume
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(streaming_audio);'
+          then:
+            - lambda: |-
+                id(led_hold_until) = millis() + 2500;
+                // Al terminar, que el interval repinte el latido o el rojo de mute.
+                id(heartbeat_visible) = false;
+                id(mute_visible) = false;
+                const float level = id(ambrosio_media).volume * 6.0f;
+                uint32_t colors[12] = {0};
+                for (int k = 0; k < 6; k++) {
+                  float f = level - k;
+                  f = f < 0 ? 0 : (f > 1 ? 1 : f);
+                  const uint32_t v = f > 0 ? (uint32_t) (20 + f * 180) : 4;
+                  const int idx = (((${vol_led_first}) + (${vol_led_dir}) * k) % 12 + 12) % 12;
+                  colors[idx] = (v << 16) | (v << 8) | v;
+                }
+                id(respeaker).set_led_ring(colors);
+            - delay: 2s
+            - if:
+                condition:
+                  lambda: 'return !id(streaming_audio);'
+                then:
+                  - script.execute: led_off
 
 # ── I2C: control del XMOS (0x2C) y del DAC AIC3104 (0x18) ──
 i2c:
@@ -545,6 +580,7 @@ binary_sensor:
         pullup: true
       inverted: true
     name: "Botón Ambrosio"
+    internal: true   # solo control local del volumen; no se publica en HA
     id: boton_ambrosio
     filters:
       - delayed_on: 30ms
@@ -552,6 +588,7 @@ binary_sensor:
     on_press:
       - media_player.volume_down: ambrosio_media
       - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
+      - script.execute: led_volume
       - logger.log:
           level: INFO
           format: "BOTÓN: volumen - (%.0f%%)"
@@ -564,6 +601,7 @@ binary_sensor:
         pullup: true
       inverted: true
     name: "Botón Ambrosio 2"
+    internal: true   # solo control local del volumen; no se publica en HA
     id: boton_ambrosio_2
     filters:
       - delayed_on: 30ms
@@ -571,6 +609,7 @@ binary_sensor:
     on_press:
       - media_player.volume_up: ambrosio_media
       - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
+      - script.execute: led_volume
       - logger.log:
           level: INFO
           format: "BOTÓN 2: volumen + (%.0f%%)"
