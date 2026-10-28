@@ -502,6 +502,7 @@ media_player:
   - platform: speaker
     id: ambrosio_media
     name: "Ambrosio Media"
+    volume_increment: 0.1   # 10 % por pulsación de botón
     media_pipeline:
       speaker: media_resampling_speaker
       format: FLAC
@@ -549,13 +550,12 @@ binary_sensor:
       - delayed_on: 30ms
       - delayed_off: 30ms
     on_press:
+      - media_player.volume_down: ambrosio_media
+      - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
       - logger.log:
           level: INFO
-          format: "BOTÓN: pulsado"
-    on_release:
-      - logger.log:
-          level: INFO
-          format: "BOTÓN: soltado"
+          format: "BOTÓN: volumen - (%.0f%%)"
+          args: ['id(ambrosio_media).volume * 100']
   - platform: gpio
     pin:
       number: GPIO4   # D3 del conector de 4 pines
@@ -569,10 +569,9 @@ binary_sensor:
       - delayed_on: 30ms
       - delayed_off: 30ms
     on_press:
+      - media_player.volume_up: ambrosio_media
+      - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
       - logger.log:
           level: INFO
-          format: "BOTÓN 2: pulsado"
-    on_release:
-      - logger.log:
-          level: INFO
-          format: "BOTÓN 2: soltado"
+          format: "BOTÓN 2: volumen + (%.0f%%)"
+          args: ['id(ambrosio_media).volume * 100']
