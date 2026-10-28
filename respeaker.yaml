@@ -543,6 +543,14 @@ media_player:
     # 10 % = -28.8 dB, 50 % = -16 dB, 100 % = 0 dB; el 0 % sigue siendo mute.
     # Subirlo (0.6) concentra más volumen abajo; bajarlo (0.4) da más recorrido.
     volume_min: 0.5
+    # Cualquier cambio de volumen (botones, HA o Ambrosierver) lo muestra en el
+    # anillo. También salta al arrancar al restaurar el volumen: eso se ignora.
+    on_volume:
+      - if:
+          condition:
+            lambda: 'return millis() > 10000;'
+          then:
+            - script.execute: led_volume
     # Sonidos incrustados en el firmware. En FLAC como los pipelines, para no
     # añadir otro decodificador.
     files:
@@ -598,7 +606,6 @@ binary_sensor:
     on_press:
       - media_player.volume_down: ambrosio_media
       - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
-      - script.execute: led_volume
       - media_player.speaker.play_on_device_media_file:
           id: ambrosio_media
           media_file: ding_sound
@@ -623,7 +630,6 @@ binary_sensor:
     on_press:
       - media_player.volume_up: ambrosio_media
       - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
-      - script.execute: led_volume
       - media_player.speaker.play_on_device_media_file:
           id: ambrosio_media
           media_file: ding_sound
