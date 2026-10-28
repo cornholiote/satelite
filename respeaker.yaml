@@ -538,6 +538,16 @@ media_player:
     id: ambrosio_media
     name: "Ambrosio Media"
     volume_increment: 0.1   # 10 % por pulsación de botón
+    # El driver del AIC3104 reparte 0-100 % en lineal sobre 64 dB (50 % = -32 dB,
+    # casi inaudible). Con volume_min 0.5 el recorrido se queda en los 32 dB útiles:
+    # 10 % = -28.8 dB, 50 % = -16 dB, 100 % = 0 dB; el 0 % sigue siendo mute.
+    # Subirlo (0.6) concentra más volumen abajo; bajarlo (0.4) da más recorrido.
+    volume_min: 0.5
+    # Sonidos incrustados en el firmware. En FLAC como los pipelines, para no
+    # añadir otro decodificador.
+    files:
+      - id: ding_sound
+        file: sounds/ding.flac
     media_pipeline:
       speaker: media_resampling_speaker
       format: FLAC
@@ -589,6 +599,10 @@ binary_sensor:
       - media_player.volume_down: ambrosio_media
       - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
       - script.execute: led_volume
+      - media_player.speaker.play_on_device_media_file:
+          id: ambrosio_media
+          media_file: ding_sound
+          announcement: true
       - logger.log:
           level: INFO
           format: "BOTÓN: volumen - (%.0f%%)"
@@ -610,6 +624,10 @@ binary_sensor:
       - media_player.volume_up: ambrosio_media
       - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
       - script.execute: led_volume
+      - media_player.speaker.play_on_device_media_file:
+          id: ambrosio_media
+          media_file: ding_sound
+          announcement: true
       - logger.log:
           level: INFO
           format: "BOTÓN 2: volumen + (%.0f%%)"

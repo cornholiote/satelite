@@ -6,6 +6,7 @@ on:
     paths:
       - 'respeaker.yaml'
       - 'components/**'
+      - 'sounds/**'
       - '*.tflite'
       - '*.json'
       - 'version.txt'
