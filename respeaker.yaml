@@ -539,3 +539,11 @@ binary_sensor:
         pullup: true
       inverted: true
     name: "Botón Ambrosio"
+    id: boton_ambrosio
+    filters:
+      - delayed_on: 30ms
+      - delayed_off: 30ms
+    on_press:
+      - logger.log: "BOTÓN: pulsado"
+    on_release:
+      - logger.log: "BOTÓN: soltado"
