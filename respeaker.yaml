@@ -27,6 +27,7 @@ esphome:
       - lambda: |-
           // Pending changes from a previous boot must never be confirmed implicitly.
           ambrosio_network::write("pending", "0");
+      - component.update: xmos_version
       - micro_wake_word.start:
 
 esp32:
@@ -414,8 +415,12 @@ respeaker_xvf3800:
     id: mic_mute_switch
     name: "Microphone Mute"
     update_interval: 1s
+  # La versión solo cambia al reflashear el XMOS: se lee una vez en on_boot
+  # (sin sondeo; cada lectura deja una línea INFO en el log).
   dfu_version:
+    id: xmos_version
     name: "XMOS Firmware Version"
+    update_interval: never
   # El firmware XMOS 1.0.7 ya está instalado en el DSP. No descargar un binario
   # externo durante la compilación; la actualización XMOS se gestiona por separado.
 
