@@ -403,9 +403,11 @@ text_sensor:
     ssid:
       name: 'WiFi SSID'
       entity_category: diagnostic
-    # Redes visibles ("SSID: -XXdB" por línea), para elegir red en Ambrosierver.
-    scan_results:
-      name: 'WiFi Scan Results'
+    # Dirección IPv4 real de la interfaz Wi-Fi (DHCP o estática).
+    ip_address:
+      name: 'Dirección IP'
+      entity_category: diagnostic
+      update_interval: 10s
   - platform: template
     name: 'Firmware Ambrosio'
     entity_category: diagnostic
