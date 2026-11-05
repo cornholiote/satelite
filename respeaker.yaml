@@ -407,7 +407,6 @@ text_sensor:
     ip_address:
       name: 'Dirección IP'
       entity_category: diagnostic
-      update_interval: 10s
   - platform: template
     name: 'Firmware Ambrosio'
     entity_category: diagnostic
