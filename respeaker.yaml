@@ -137,6 +137,28 @@ api:
       then:
         - lambda: 'id(led_hold_until) = millis() + 3000;'
         - script.execute: led_off
+    # Ambrosierver lo llama al terminar de decir una pregunta: abre el micro
+    # sin palabra de activación para recoger la respuesta. wait_ms = margen
+    # para empezar a hablar antes de que cuente el silencio.
+    - service: start_listening
+      variables:
+        wait_ms: int
+      then:
+        - if:
+            condition:
+              lambda: 'return !id(streaming_audio);'
+            then:
+              - micro_wake_word.stop:
+              - lambda: 'id(streaming_audio) = true; id(led_r) = 0; id(led_g) = 80; id(led_b) = 255;'  # azul: escuchando
+              - script.execute: led_solid
+              - media_player.speaker.play_on_device_media_file:
+                  id: ambrosio_media
+                  media_file: ding_sound
+                  announcement: true
+              - delay: 450ms   # que el aviso no entre en la grabación
+              - lambda: 'id(streamer).start_follow_up(wait_ms < 0 ? 0 : (wait_ms > 10000 ? 10000 : (uint32_t) wait_ms));'
+            else:
+              - logger.log: "start_listening ignorado: ya está escuchando"
     - service: blink_color
       variables:
         red: int

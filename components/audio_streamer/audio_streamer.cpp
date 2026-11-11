@@ -157,7 +157,11 @@ void AudioStreamer::start() {
     return;
   }
   start_ms_ = millis();
-  last_voice_ms_ = start_ms_;
+  wait_ms_ = pending_wait_ms_;
+  pending_wait_ms_ = 0;
+  // En seguimiento, «última voz» queda en el futuro: el silencio no cuenta
+  // hasta pasado el margen.
+  last_voice_ms_ = start_ms_ + wait_ms_;
   decim_acc_ = 0;
   decim_count_ = 0;
   active_ = true;
@@ -168,6 +172,12 @@ void AudioStreamer::start() {
            (unsigned) si.get_bits_per_sample());
   on_start_callbacks_.call();
   ESP_LOGI(TAG, "Streaming started");
+}
+
+void AudioStreamer::start_follow_up(uint32_t wait_ms) {
+  pending_wait_ms_ = wait_ms;
+  start();
+  pending_wait_ms_ = 0;  // por si start() falló antes de usarlo
 }
 
 void AudioStreamer::stop() {
@@ -200,7 +210,9 @@ void AudioStreamer::on_audio_data_(const std::vector<uint8_t> &data) {
   uint16_t rms = static_cast<uint16_t>(std::sqrt((double) sum_sq / (double) n_frames));
 
   uint32_t now = millis();
-  if (rms >= silence_threshold_) {
+  // Con margen de seguimiento, last_voice_ms_ puede estar en el futuro: no
+  // adelantarlo con ruido previo al margen.
+  if (rms >= silence_threshold_ && (int32_t) (now - last_voice_ms_) > 0) {
     last_voice_ms_ = now;
   }
 
@@ -219,15 +231,16 @@ void AudioStreamer::on_audio_data_(const std::vector<uint8_t> &data) {
     remaining -= sent;
   }
 
-  if (max_duration_ms_ > 0 && (now - start_ms_ >= max_duration_ms_)) {
+  if (max_duration_ms_ > 0 && (now - start_ms_ >= max_duration_ms_ + wait_ms_)) {
     ESP_LOGI(TAG, "Max duration reached (%u ms), closing stream", max_duration_ms_);
     mic_->stop();
     close_socket_(false);
     return;
   }
 
+  // Diferencia con signo: en seguimiento last_voice_ms_ empieza en el futuro.
   if ((now - start_ms_ >= min_duration_ms_) &&
-      (now - last_voice_ms_ >= silence_duration_ms_)) {
+      (int32_t) (now - last_voice_ms_) >= (int32_t) silence_duration_ms_) {
     ESP_LOGI(TAG, "Silence detected (RMS=%u), closing stream", rms);
     mic_->stop();
     close_socket_(false);

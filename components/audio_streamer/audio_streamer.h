@@ -28,6 +28,9 @@ class AudioStreamer : public Component {
   void set_name(const std::string &name) { name_ = name; }
 
   void start();
+  // Escucha de seguimiento (lo pide Ambrosierver tras una pregunta): el
+  // silencio empieza a contar tras wait_ms, para dar tiempo a contestar.
+  void start_follow_up(uint32_t wait_ms);
   void stop();
 
   void add_on_start_callback(std::function<void()> &&cb) { on_start_callbacks_.add(std::move(cb)); }
@@ -53,6 +56,8 @@ class AudioStreamer : public Component {
   bool callback_registered_{false};
   uint32_t last_voice_ms_{0};
   uint32_t start_ms_{0};
+  uint32_t wait_ms_{0};          // margen inicial de la sesión actual
+  uint32_t pending_wait_ms_{0};  // el que usará el próximo start()
 
   // Decimación 48 kHz → 16 kHz (3:1), persistente entre callbacks de audio.
   int32_t decim_acc_{0};
