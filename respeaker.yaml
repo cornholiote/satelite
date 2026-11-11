@@ -131,12 +131,33 @@ api:
         green: int
         blue: int
       then:
-        - lambda: 'id(led_hold_until) = millis() + 3000; id(led_r) = red; id(led_g) = green; id(led_b) = blue;'
+        - lambda: 'id(waiting_fx) = false; id(led_hold_until) = millis() + 3000; id(led_r) = red; id(led_g) = green; id(led_b) = blue;'
         - script.execute: led_solid
     - service: leds_off
       then:
-        - lambda: 'id(led_hold_until) = millis() + 3000;'
+        - lambda: 'id(waiting_fx) = false; id(led_hold_until) = millis() + 3000;'
         - script.execute: led_off
+    # Mientras Ambrosierver procesa una orden: animación «pensando».
+    - service: set_waiting_lights
+      variables:
+        enabled: bool
+      then:
+        - lambda: |-
+            if (enabled) {
+              if (!id(waiting_fx)) id(waiting_fx_since) = millis();
+              id(waiting_fx) = true;
+            } else if (id(waiting_fx)) {
+              id(waiting_fx) = false;
+              uint32_t colors[12] = {0};
+              id(respeaker).set_led_ring(colors);
+            }
+    # Corta solo el anuncio en curso (música de espera) sin tocar la música
+    # que esté sonando; Home Assistant no expone esta distinción.
+    - service: stop_announcement
+      then:
+        - media_player.stop:
+            id: ambrosio_media
+            announcement: true
     # Ambrosierver lo llama al terminar de decir una pregunta: abre el micro
     # sin palabra de activación para recoger la respuesta. wait_ms = margen
     # para empezar a hablar antes de que cuente el silencio.
@@ -149,7 +170,7 @@ api:
               lambda: 'return !id(streaming_audio);'
             then:
               - micro_wake_word.stop:
-              - lambda: 'id(streaming_audio) = true; id(led_r) = 0; id(led_g) = 80; id(led_b) = 255;'  # azul: escuchando
+              - lambda: 'id(waiting_fx) = false; id(streaming_audio) = true; id(led_r) = 0; id(led_g) = 80; id(led_b) = 255;'  # azul: escuchando
               - script.execute: led_solid
               - media_player.speaker.play_on_device_media_file:
                   id: ambrosio_media
@@ -166,7 +187,7 @@ api:
         blue: int
         count: int
       then:
-        - lambda: 'id(led_hold_until) = millis() + 3000; id(led_r) = red; id(led_g) = green; id(led_b) = blue; id(led_blink_count) = count;'
+        - lambda: 'id(waiting_fx) = false; id(led_hold_until) = millis() + 3000; id(led_r) = red; id(led_g) = green; id(led_b) = blue; id(led_blink_count) = count;'
         - script.execute: led_blink
 
 ota:
@@ -222,11 +243,44 @@ interval:
           on_error:
             then:
               - lambda: 'id(server_online) = false;'
+  # «Pensando»: un brillo que gira despacio con cola en degradado azul →
+  # turquesa y un reflejo tenue enfrente; entra con fundido y respira suave.
+  # Se apaga sola a los 45 s por si el servidor no llega a pararla.
+  - interval: 50ms
+    then:
+      - lambda: |-
+          if (!id(waiting_fx) || id(streaming_audio)) return;
+          const uint32_t elapsed = millis() - id(waiting_fx_since);
+          uint32_t colors[12];
+          if (elapsed > 45000) {
+            id(waiting_fx) = false;
+            for (int i = 0; i < 12; i++) colors[i] = 0;
+            id(respeaker).set_led_ring(colors);
+            return;
+          }
+          const float t = elapsed / 1000.0f;
+          const float head = fmodf(t * 6.0f, 12.0f);               // una vuelta cada 2 s
+          const float fade_in = t < 0.8f ? (t / 0.8f) * (t / 0.8f) : 1.0f;
+          const float breathe = 0.82f + 0.18f * sinf(t * 2.0f * (float) M_PI / 3.2f);
+          const float max_bright = 0.42f;                           // sin deslumbrar
+          for (int i = 0; i < 12; i++) {
+            const float d = fmodf(head - i + 12.0f, 12.0f);         // distancia hacia la cola
+            const float d2 = fmodf(head + 6.0f - i + 12.0f, 12.0f);
+            float k = expf(-d / 2.0f) + 0.3f * expf(-d2 / 2.0f);
+            if (k > 1.0f) k = 1.0f;
+            k *= fade_in * breathe * max_bright;
+            const float mix = d < 6.0f ? d / 6.0f : 1.0f;           // cabeza azul, cola turquesa
+            const float r = 91.0f + (63.0f - 91.0f) * mix;
+            const float g = 124.0f + (214.0f - 124.0f) * mix;
+            const float b = 255.0f + (194.0f - 255.0f) * mix;
+            colors[i] = ((uint32_t) (r * k) << 16) | ((uint32_t) (g * k) << 8) | (uint32_t) (b * k);
+          }
+          id(respeaker).set_led_ring(colors);
   - interval: 150ms
     then:
       - lambda: |-
           uint32_t now = millis();
-          const bool idle = !id(streaming_audio) && (int32_t)(now - id(led_hold_until)) >= 0;
+          const bool idle = !id(streaming_audio) && !id(waiting_fx) && (int32_t)(now - id(led_hold_until)) >= 0;
           if (!id(server_online) && idle) {
             uint32_t phase = now % 1600;
             uint8_t b = 0;
@@ -299,6 +353,15 @@ globals:
     type: int
     restore_value: no
     initial_value: '2'
+  # Animación «pensando» mientras Ambrosierver procesa (set_waiting_lights).
+  - id: waiting_fx
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: waiting_fx_since
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
 
 script:
   - id: led_solid
