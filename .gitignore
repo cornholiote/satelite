@@ -2,6 +2,10 @@
 /.esphome/
 /secrets.yaml
 /.venv-esphome/
+/.venv/
+
+# Claves locales (nunca en el repo: es público)
+/.env
 
 # macOS
 .DS_Store
