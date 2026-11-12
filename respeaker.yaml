@@ -172,9 +172,9 @@ api:
               - micro_wake_word.stop:
               - lambda: 'id(waiting_fx) = false; id(streaming_audio) = true; id(led_r) = 0; id(led_g) = 80; id(led_b) = 255;'  # azul: escuchando
               - script.execute: led_solid
-              - media_player.speaker.play_on_device_media_file:
+              - media_player.play_media:
                   id: ambrosio_media
-                  media_file: ding_sound
+                  media_url: "audio-file://ding_sound"
                   announcement: true
               - delay: 450ms   # que el aviso no entre en la grabación
               - lambda: 'id(streamer).start_follow_up(wait_ms < 0 ? 0 : (wait_ms > 10000 ? 10000 : (uint32_t) wait_ms));'
@@ -619,8 +619,38 @@ speaker:
     sample_rate: 48000
     bits_per_sample: 16
 
+# Sonidos incrustados en el firmware. En FLAC como los pipelines, para no
+# añadir otro decodificador. Se reproducen con media_url "audio-file://<id>".
+audio_file:
+  - id: ding_sound
+    file: sounds/ding.flac
+
+# Sendspin (Music Assistant): música sincronizada entre satélites. El protocolo
+# y el componente son experimentales en ESPHome. Necesita Music Assistant
+# 2.11.0b4+ y el puerto TCP 8928 abierto entre MA y el satélite.
+sendspin:
+  task_stack_in_psram: true
+
+# Orígenes de audio de cada pipeline. Cada pipeline necesita sus propias
+# instancias (no se pueden compartir).
+media_source:
+  # Música: Sendspin o URL (Home Assistant / Music Assistant sin Sendspin).
+  - platform: sendspin
+    id: sendspin_source
+    task_stack_in_psram: true
+  - platform: audio_http
+    id: media_http_source
+    task_stack_in_psram: true
+  # Anuncios: TTS, música de espera y tonos de Ambrosierver (URL) y el ding.
+  - platform: audio_http
+    id: announcement_http_source
+    task_stack_in_psram: true
+  - platform: audio_file
+    id: announcement_file_source
+    task_stack_in_psram: true
+
 media_player:
-  - platform: speaker
+  - platform: speaker_source
     id: ambrosio_media
     name: "Ambrosio Media"
     volume_increment: 0.1   # 10 % por pulsación de botón
@@ -637,21 +667,22 @@ media_player:
             lambda: 'return millis() > 10000;'
           then:
             - script.execute: led_volume
-    # Sonidos incrustados en el firmware. En FLAC como los pipelines, para no
-    # añadir otro decodificador.
-    files:
-      - id: ding_sound
-        file: sounds/ding.flac
     media_pipeline:
       speaker: media_resampling_speaker
       format: FLAC
       sample_rate: 48000
       num_channels: 1
+      sources:
+        - sendspin_source
+        - media_http_source
     announcement_pipeline:
       speaker: announcement_resampling_speaker
       format: FLAC
       sample_rate: 48000
       num_channels: 1
+      sources:
+        - announcement_http_source
+        - announcement_file_source
 micro_wake_word:
   id: mww
   microphone:
@@ -692,9 +723,9 @@ binary_sensor:
     on_press:
       - media_player.volume_down: ambrosio_media
       - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
-      - media_player.speaker.play_on_device_media_file:
+      - media_player.play_media:
           id: ambrosio_media
-          media_file: ding_sound
+          media_url: "audio-file://ding_sound"
           announcement: true
       - logger.log:
           level: INFO
@@ -716,9 +747,9 @@ binary_sensor:
     on_press:
       - media_player.volume_up: ambrosio_media
       - delay: 50ms   # el cambio se encola y se aplica en el loop del media player
-      - media_player.speaker.play_on_device_media_file:
+      - media_player.play_media:
           id: ambrosio_media
-          media_file: ding_sound
+          media_url: "audio-file://ding_sound"
           announcement: true
       - logger.log:
           level: INFO
