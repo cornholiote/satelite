@@ -655,10 +655,11 @@ media_player:
     name: "Ambrosio Media"
     volume_increment: 0.1   # 10 % por pulsación de botón
     # El driver del AIC3104 reparte 0-100 % en lineal sobre 64 dB (50 % = -32 dB,
-    # casi inaudible). Con volume_min 0.5 el recorrido se queda en los 32 dB útiles:
-    # 10 % = -28.8 dB, 50 % = -16 dB, 100 % = 0 dB; el 0 % sigue siendo mute.
-    # Subirlo (0.6) concentra más volumen abajo; bajarlo (0.4) da más recorrido.
-    volume_min: 0.5
+    # casi inaudible). volume_min recorta el tramo de abajo: dB = -64·(1-min)·(1-v).
+    # 0.5 dejaba el 1 % en -31.7 dB (demasiado alto); con 0.35 el recorrido es de
+    # 41.6 dB: 1 % = -41.2 dB, 10 % = -37.4 dB, 50 % = -20.8 dB, 100 % = 0 dB; el
+    # 0 % sigue siendo mute. Subirlo concentra más volumen abajo; bajarlo da más recorrido.
+    volume_min: 0.35
     # Cualquier cambio de volumen (botones, HA o Ambrosierver) lo muestra en el
     # anillo. También salta al arrancar al restaurar el volumen: eso se ignora.
     on_volume:
